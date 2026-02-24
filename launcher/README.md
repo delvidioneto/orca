@@ -47,14 +47,15 @@ A versão é obtida com `git describe --tags --always` na pasta do projeto. Ela 
 
 ## Construir o executável (Windows)
 
-1. No **Windows**, na raiz do projeto Orca:
-   ```bash
-   pip install -r launcher/requirements-launcher.txt
-   cd launcher
-   pyinstaller build_exe.spec
-   ```
-2. O executável será gerado em `launcher/dist/OrcaLauncher.exe`.
-3. **Copie `OrcaLauncher.exe` para a raiz do projeto Orca.** Ao executar, o launcher usa a pasta onde o .exe está como raiz do projeto.
+No **Windows**, na raiz do projeto Orca:
+
+```bash
+pip install -r launcher/requirements-launcher.txt
+cd launcher
+pyinstaller build_exe.spec
+```
+
+O executável será gerado em `launcher/dist/OrcaLauncher.exe`. Copie `OrcaLauncher.exe` para a raiz do projeto para usar; ao executar, o launcher usa a pasta onde o .exe está como raiz do projeto.
 
 ## Distribuir para o usuário
 
