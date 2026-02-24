@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Documentação - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-journal-text"></i> Documentação</h1>
+    <p class="text-muted mb-0">Como criar pipelines e tarefas e configurar o agendamento via JSON.</p>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5 border-bottom pb-2"><i class="bi bi-diagram-3"></i> 1. O que é um Pipeline</h2>
+        <p class="mb-0">
+            Um <strong>pipeline</strong> é um conjunto de tarefas que podem ser executadas em sequência ou com dependências.
+            Você cria primeiro o pipeline (nome e descrição) e depois adiciona as <strong>tarefas</strong> a ele.
+            Cada tarefa pode rodar um script (Python, Batch ou PowerShell) em um horário ou intervalo definido por um JSON.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5 border-bottom pb-2"><i class="bi bi-plus-circle"></i> 2. Como criar um Pipeline</h2>
+        <ol class="mb-0">
+            <li>No menu, clique em <strong>Pipelines</strong>.</li>
+            <li>Clique no botão <strong>Novo Pipeline</strong> (ou equivalente).</li>
+            <li>Preencha:
+                <ul>
+                    <li><strong>Nome</strong> — nome do pipeline (ex.: "Backup diário").</li>
+                    <li><strong>Descrição</strong> — opcional; texto livre.</li>
+                    <li><strong>Ativo</strong> — marque para o pipeline ser considerado pelo agendador; desmarque para pausar todas as tarefas.</li>
+                </ul>
+            </li>
+            <li>Clique em <strong>Salvar</strong>.</li>
+            <li>Você será redirecionado para a lista de pipelines; clique no nome do pipeline criado para abrir o detalhe e adicionar tarefas.</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5 border-bottom pb-2"><i class="bi bi-list-task"></i> 3. Como criar Tarefas</h2>
+        <ol>
+            <li>Abra o <strong>Pipeline</strong> (clique no nome na lista de pipelines).</li>
+            <li>Na tela de detalhe do pipeline, clique em <strong>Nova Tarefa</strong> (ou no link/botão equivalente que leva à criação de tarefa com esse pipeline já selecionado).</li>
+            <li>Preencha o formulário:
+                <ul>
+                    <li><strong>Pipeline</strong> — selecione o pipeline ao qual a tarefa pertence (pode já vir preenchido se você veio do detalhe do pipeline).</li>
+                    <li><strong>Nome</strong> — nome da tarefa (ex.: "Backup do banco").</li>
+                    <li><strong>Descrição</strong> — opcional.</li>
+                    <li><strong>Caminho do Script</strong> — caminho relativo ao diretório do projeto, ex.: <code>scripts/meu_script.py</code> ou <code>scripts/backup.bat</code>.</li>
+                    <li><strong>Tipo</strong> — Python (.py), Shell (.sh), Batch (.bat), PowerShell (.ps1), Node.js (.js), Perl (.pl), Ruby (.rb) ou Go (.go). O tipo pode ser inferido pela extensão do arquivo. Cada tipo só roda no SO compatível (ex.: .bat só no Windows; .sh só em Linux/macOS).</li>
+                    <li><strong>Depende de</strong> — opcional; selecione outras tarefas do mesmo pipeline que precisam ter rodado com sucesso antes desta (segure Ctrl para múltiplas).</li>
+                    <li><strong>Tentativas</strong> — quantas vezes tentar de novo em caso de falha (0 = não tentar).</li>
+                    <li><strong>Delay entre tentativas (s)</strong> — segundos de espera entre uma tentativa e outra.</li>
+                    <li><strong>Timeout (s)</strong> — opcional; tempo máximo de execução em segundos; em branco = sem limite.</li>
+                    <li><strong>Configuração do Agendamento (JSON)</strong> — objeto JSON que define quando a tarefa roda (veja as tabelas abaixo). Pode ser <code>{}</code> para diário à meia-noite.</li>
+                    <li><strong>Tarefa ativa</strong> — marque para a tarefa ser agendada; desmarque para desativar.</li>
+                </ul>
+            </li>
+            <li>Clique em <strong>Salvar</strong>.</li>
+        </ol>
+        <p class="mb-0 text-muted small">
+            O <strong>tipo de agendamento</strong> (intervalo, diário, semanal, etc.) é inferido automaticamente a partir das chaves do JSON; não há campo separado para isso.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5 border-bottom pb-2"><i class="bi bi-code-slash"></i> 4. Configuração do Agendamento (JSON)</h2>
+        <p>
+            O campo <strong>Configuração do Agendamento</strong> é um único objeto JSON. O sistema define o tipo de agendamento pelas chaves presentes, conforme a tabela de inferência abaixo. Em seguida, para cada tipo, as chaves aceitas estão nas tabelas por tipo.
+        </p>
+
+        <h3 class="h6 mt-3">4.1 Inferência do tipo (qual JSON gera qual agendamento)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Se o JSON contiver...</th>
+                        <th>Tipo inferido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>seconds</code>, <code>minutes</code>, <code>hours</code> ou <code>days</code></td><td>Intervalo</td></tr>
+                    <tr><td><code>week</code></td><td>Quinzenal</td></tr>
+                    <tr><td><code>day</code> (dia do mês, 1–31)</td><td>Mensal</td></tr>
+                    <tr><td><code>day_of_week</code> (0–6)</td><td>Semanal</td></tr>
+                    <tr><td><code>year</code>, <code>month</code> ou <code>second</code></td><td>Cron</td></tr>
+                    <tr><td>Nenhuma das acima (ou só <code>hour</code>/<code>minute</code>)</td><td>Diário</td></tr>
+                    <tr><td>Vazio <code>{}</code></td><td>Diário (meia-noite)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="h6 mt-4">4.2 Intervalo (executar a cada X segundos/minutos/horas/dias)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>seconds</code></td><td>inteiro</td><td>um deles</td><td>Intervalo em segundos</td><td><code>30</code></td></tr>
+                    <tr><td><code>minutes</code></td><td>inteiro</td><td>um deles</td><td>Intervalo em minutos</td><td><code>30</code></td></tr>
+                    <tr><td><code>hours</code></td><td>inteiro</td><td>um deles</td><td>Intervalo em horas</td><td><code>2</code></td></tr>
+                    <tr><td><code>days</code></td><td>inteiro</td><td>um deles</td><td>Intervalo em dias</td><td><code>1</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">Exemplo: <code>{"minutes": 30}</code> — executa a cada 30 minutos.</p>
+
+        <h3 class="h6 mt-4">4.3 Diário (um horário por dia)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>hour</code></td><td>inteiro (0–23)</td><td>não</td><td>Hora do dia (0 = meia-noite)</td><td><code>9</code></td></tr>
+                    <tr><td><code>minute</code></td><td>inteiro (0–59)</td><td>não</td><td>Minuto</td><td><code>0</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">Exemplo: <code>{"hour": 9, "minute": 0}</code> — todo dia às 09:00. <code>{}</code> — todo dia à 00:00.</p>
+
+        <h3 class="h6 mt-4">4.4 Semanal (um dia da semana + horário)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>day_of_week</code></td><td>inteiro (0–6)</td><td>sim</td><td>0=segunda, 1=terça, … 6=domingo</td><td><code>0</code></td></tr>
+                    <tr><td><code>hour</code></td><td>inteiro (0–23)</td><td>não</td><td>Hora</td><td><code>9</code></td></tr>
+                    <tr><td><code>minute</code></td><td>inteiro (0–59)</td><td>não</td><td>Minuto</td><td><code>0</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">Exemplo: <code>{"day_of_week": 0, "hour": 9, "minute": 0}</code> — toda segunda às 09:00.</p>
+
+        <h3 class="h6 mt-4">4.5 Mensal (dia do mês + horário)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>day</code></td><td>inteiro (1–31)</td><td>sim</td><td>Dia do mês</td><td><code>1</code></td></tr>
+                    <tr><td><code>hour</code></td><td>inteiro (0–23)</td><td>não</td><td>Hora</td><td><code>9</code></td></tr>
+                    <tr><td><code>minute</code></td><td>inteiro (0–59)</td><td>não</td><td>Minuto</td><td><code>0</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">Exemplo: <code>{"day": 1, "hour": 9, "minute": 0}</code> — dia 1 de cada mês às 09:00.</p>
+
+        <h3 class="h6 mt-4">4.6 Quinzenal (dia da semana + horário, a cada 2 semanas)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>week</code></td><td>string</td><td>sim</td><td>Padrão de semana (ex.: a cada 2 semanas)</td><td><code>"*/2"</code></td></tr>
+                    <tr><td><code>day_of_week</code></td><td>inteiro (0–6)</td><td>sim</td><td>0=segunda, … 6=domingo</td><td><code>0</code></td></tr>
+                    <tr><td><code>hour</code></td><td>inteiro (0–23)</td><td>não</td><td>Hora</td><td><code>9</code></td></tr>
+                    <tr><td><code>minute</code></td><td>inteiro (0–59)</td><td>não</td><td>Minuto</td><td><code>0</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">Exemplo: <code>{"day_of_week": 0, "hour": 9, "minute": 0, "week": "*/2"}</code> — segunda a cada 2 semanas às 09:00.</p>
+
+        <h3 class="h6 mt-4">4.7 Cron (expressão completa — ano, mês, dia, semana, dia da semana, hora, minuto, segundo)</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Chave</th>
+                        <th>Tipo</th>
+                        <th>Obrigatório</th>
+                        <th>Descrição</th>
+                        <th>Exemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>year</code></td><td>string/inteiro</td><td>não</td><td>Ano (ex.: 2026 ou "*")</td><td><code>"*"</code></td></tr>
+                    <tr><td><code>month</code></td><td>string/inteiro</td><td>não</td><td>Mês (1–12)</td><td><code>1</code></td></tr>
+                    <tr><td><code>day</code></td><td>string/inteiro</td><td>não</td><td>Dia do mês (1–31)</td><td><code>15</code></td></tr>
+                    <tr><td><code>week</code></td><td>string</td><td>não</td><td>Semana do ano ou padrão</td><td><code>"*/2"</code></td></tr>
+                    <tr><td><code>day_of_week</code></td><td>string/inteiro</td><td>não</td><td>Dia da semana (0–6)</td><td><code>0</code></td></tr>
+                    <tr><td><code>hour</code></td><td>inteiro (0–23)</td><td>não</td><td>Hora</td><td><code>9</code></td></tr>
+                    <tr><td><code>minute</code></td><td>inteiro (0–59)</td><td>não</td><td>Minuto</td><td><code>0</code></td></tr>
+                    <tr><td><code>second</code></td><td>inteiro (0–59)</td><td>não</td><td>Segundo</td><td><code>0</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">O tipo Cron é inferido quando aparecem <code>year</code>, <code>month</code> ou <code>second</code>. Use para combinações mais complexas.</p>
+
+        <h3 class="h6 mt-4">Resumo rápido — exemplos de JSON</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Objetivo</th>
+                        <th>JSON</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>A cada 30 minutos</td><td><code>{"minutes": 30}</code></td></tr>
+                    <tr><td>Todo dia às 09:00</td><td><code>{"hour": 9, "minute": 0}</code></td></tr>
+                    <tr><td>Toda segunda às 09:00</td><td><code>{"day_of_week": 0, "hour": 9, "minute": 0}</code></td></tr>
+                    <tr><td>Dia 1 do mês às 09:00</td><td><code>{"day": 1, "hour": 9, "minute": 0}</code></td></tr>
+                    <tr><td>Todo dia à meia-noite</td><td><code>{}</code></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

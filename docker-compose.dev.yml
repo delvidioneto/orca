@@ -1,0 +1,50 @@
+services:
+  web:
+    build: .
+    container_name: orca_web_dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+      - ./media:/app/media
+      - ./data:/app/data
+      - ./staticfiles:/app/staticfiles
+    environment:
+      - DEBUG=True
+      - CREATE_SUPERUSER=true
+      - DATABASE=sqlite
+      - TIME_ZONE=America/Sao_Paulo
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Serviço db presente para evitar aviso de "orphan" (orca_db) quando
+  # já existir container do compose de produção. Em dev o app usa SQLite;
+  # use: docker compose -f docker-compose.dev.yml --profile postgres up
+  # para subir também o Postgres.
+  db:
+    image: postgres:15-alpine
+    container_name: orca_db
+    profiles:
+      - postgres
+    environment:
+      - POSTGRES_DB=orca
+      - POSTGRES_USER=orca
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-orca123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orca"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

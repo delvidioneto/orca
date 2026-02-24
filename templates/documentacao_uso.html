@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Pipelines e Tarefas - Documentação - Orca{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap flex-lg-nowrap gap-4">
+    <aside class="doc-nav order-2 order-lg-1 flex-shrink-0">
+        <div class="card border-0 shadow-sm sticky-top" style="top: 1rem; width: 220px;">
+            <div class="card-body py-3">
+                <p class="small text-uppercase text-muted fw-bold mb-2">Navegação</p>
+                <a href="{% url 'documentacao' %}" class="d-block py-1 text-muted small text-decoration-none">
+                    <i class="bi bi-journal-text me-2"></i>Índice
+                </a>
+                {% for doc in doc_entries %}
+                <a href="{% url 'documentacao_page' slug=doc.slug %}" class="d-block py-1 small text-decoration-none {% if doc.slug == 'uso' %}fw-bold text-primary{% else %}text-muted{% endif %}">
+                    <i class="bi {{ doc.icon }} me-2"></i>{{ doc.title }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </aside>
+    <article class="doc-content order-1 order-lg-2 flex-grow-1 min-w-0">
+        <div class="page-header mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'documentacao' %}" class="text-decoration-none">Documentação</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Pipelines e Tarefas</li>
+                </ol>
+            </nav>
+            <h1><i class="bi bi-diagram-3 me-2"></i> Pipelines e Tarefas</h1>
+            <p class="text-muted mb-0">Como criar pipelines, tarefas e configurar o agendamento via JSON.</p>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 border-bottom pb-2"><i class="bi bi-diagram-3"></i> 1. O que é um Pipeline</h2>
+                <p class="mb-0">
+                    Um <strong>pipeline</strong> é um conjunto de tarefas que podem ser executadas em sequência ou com dependências.
+                    Você cria primeiro o pipeline (nome e descrição) e depois adiciona as <strong>tarefas</strong> a ele.
+                    Cada tarefa pode rodar um script (Python, Batch ou PowerShell) em um horário ou intervalo definido por um JSON.
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 border-bottom pb-2"><i class="bi bi-plus-circle"></i> 2. Como criar um Pipeline</h2>
+                <ol class="mb-0">
+                    <li>No menu, clique em <strong>Pipelines</strong>.</li>
+                    <li>Clique no botão <strong>Novo Pipeline</strong> (ou equivalente).</li>
+                    <li>Preencha:
+                        <ul>
+                            <li><strong>Nome</strong> — nome do pipeline (ex.: "Backup diário").</li>
+                            <li><strong>Descrição</strong> — opcional; texto livre.</li>
+                            <li><strong>Ativo</strong> — marque para o pipeline ser considerado pelo agendador; desmarque para pausar todas as tarefas.</li>
+                        </ul>
+                    </li>
+                    <li>Clique em <strong>Salvar</strong>.</li>
+                    <li>Você será redirecionado para a lista de pipelines; clique no nome do pipeline criado para abrir o detalhe e adicionar tarefas.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 border-bottom pb-2"><i class="bi bi-list-task"></i> 3. Como criar Tarefas</h2>
+                <ol>
+                    <li>Abra o <strong>Pipeline</strong> (clique no nome na lista de pipelines).</li>
+                    <li>Na tela de detalhe do pipeline, clique em <strong>Nova Tarefa</strong> (ou no link/botão equivalente que leva à criação de tarefa com esse pipeline já selecionado).</li>
+                    <li>Preencha o formulário:
+                        <ul>
+                            <li><strong>Pipeline</strong> — selecione o pipeline ao qual a tarefa pertence (pode já vir preenchido se você veio do detalhe do pipeline).</li>
+                            <li><strong>Nome</strong> — nome da tarefa (ex.: "Backup do banco").</li>
+                            <li><strong>Descrição</strong> — opcional.</li>
+                            <li><strong>Tipo de executor</strong> — Script (.py, .ps1, …), UiPath ou Blue Prism. Para RPA, veja <a href="{% url 'documentacao_page' slug='rpa' %}">RPA – UiPath e Blue Prism</a>.</li>
+                            <li><strong>Caminho do Script</strong> — caminho relativo ao diretório do projeto, ex.: <code>scripts/meu_script.py</code> ou <code>scripts/backup.bat</code> (quando executor = Script).</li>
+                            <li><strong>Interpretador</strong> — opcional; ex.: <code>/app/venv/bin/python</code> para usar o Python do ambiente do usuário.</li>
+                            <li><strong>Tipo</strong> — Python (.py), Shell (.sh), Batch (.bat), PowerShell (.ps1), Node.js (.js), Perl (.pl), Ruby (.rb) ou Go (.go). Cada tipo só roda no SO compatível.</li>
+                            <li><strong>Depende de</strong> — opcional; selecione outras tarefas do mesmo pipeline que precisam ter rodado com sucesso antes desta.</li>
+                            <li><strong>Tentativas</strong>, <strong>Delay entre tentativas</strong>, <strong>Timeout (s)</strong> — retry e tempo máximo.</li>
+                            <li><strong>Configuração do Agendamento (JSON)</strong> — quando a tarefa roda (veja as tabelas abaixo).</li>
+                            <li><strong>Tarefa ativa</strong> — marque para a tarefa ser agendada.</li>
+                        </ul>
+                    </li>
+                    <li>Clique em <strong>Salvar</strong>.</li>
+                </ol>
+                <p class="mb-0 text-muted small">
+                    O <strong>tipo de agendamento</strong> (intervalo, diário, semanal, etc.) é inferido automaticamente a partir das chaves do JSON.
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 border-bottom pb-2"><i class="bi bi-code-slash"></i> 4. Configuração do Agendamento (JSON)</h2>
+                <p>
+                    O campo <strong>Configuração do Agendamento</strong> é um único objeto JSON. O sistema define o tipo de agendamento pelas chaves presentes, conforme a tabela de inferência abaixo.
+                </p>
+
+                <h3 class="h6 mt-3">4.1 Inferência do tipo</h3>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr><th>Se o JSON contiver...</th><th>Tipo inferido</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>seconds</code>, <code>minutes</code>, <code>hours</code> ou <code>days</code></td><td>Intervalo</td></tr>
+                            <tr><td><code>week</code></td><td>Quinzenal</td></tr>
+                            <tr><td><code>day</code> (dia do mês, 1–31)</td><td>Mensal</td></tr>
+                            <tr><td><code>day_of_week</code> (0–6)</td><td>Semanal</td></tr>
+                            <tr><td><code>year</code>, <code>month</code> ou <code>second</code></td><td>Cron</td></tr>
+                            <tr><td>Nenhuma das acima (ou só <code>hour</code>/<code>minute</code>)</td><td>Diário</td></tr>
+                            <tr><td>Vazio <code>{}</code></td><td>Diário (meia-noite)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="h6 mt-4">4.2 Intervalo</h3>
+                <p class="small text-muted">Ex.: <code>{"minutes": 30}</code> — a cada 30 minutos.</p>
+
+                <h3 class="h6 mt-4">4.3 Diário</h3>
+                <p class="small text-muted">Ex.: <code>{"hour": 9, "minute": 0}</code> — todo dia às 09:00. <code>{}</code> — meia-noite.</p>
+
+                <h3 class="h6 mt-4">4.4 Semanal</h3>
+                <p class="small text-muted">Ex.: <code>{"day_of_week": 0, "hour": 9, "minute": 0}</code> — segunda às 09:00 (0=segunda, 6=domingo).</p>
+
+                <h3 class="h6 mt-4">4.5 Mensal</h3>
+                <p class="small text-muted">Ex.: <code>{"day": 1, "hour": 9, "minute": 0}</code> — dia 1 do mês às 09:00.</p>
+
+                <h3 class="h6 mt-4">Resumo rápido</h3>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr><th>Objetivo</th><th>JSON</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>A cada 30 minutos</td><td><code>{"minutes": 30}</code></td></tr>
+                            <tr><td>Todo dia às 09:00</td><td><code>{"hour": 9, "minute": 0}</code></td></tr>
+                            <tr><td>Toda segunda às 09:00</td><td><code>{"day_of_week": 0, "hour": 9, "minute": 0}</code></td></tr>
+                            <tr><td>Dia 1 do mês às 09:00</td><td><code>{"day": 1, "hour": 9, "minute": 0}</code></td></tr>
+                            <tr><td>Todo dia à meia-noite</td><td><code>{}</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </article>
+</div>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ pipeline.name }} - Orca{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pipeline-tasks-table th { font-weight: 600; white-space: nowrap; }
+    .pipeline-tasks-table .col-nome { min-width: 130px; }
+    .pipeline-tasks-table .col-agendamento { min-width: 200px; }
+    .pipeline-tasks-table .col-datas { white-space: nowrap; width: 1%; }
+    .pipeline-tasks-table .col-dep { min-width: 90px; }
+    .pipeline-tasks-table .col-acoes { width: 6.5rem; text-align: center; white-space: nowrap; }
+    .pipeline-tasks-table td { vertical-align: middle !important; }
+    .pipeline-tasks-table .cell-agendamento { font-size: 0.875rem; line-height: 1.35; }
+    .pipeline-tasks-table .cell-dep .badge { font-size: 0.7rem; margin: 1px; display: inline-block; }
+
+    /* Pipeline graph - estilo Orca */
+    .pipeline-graph {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid var(--primary-yellow);
+        overflow-x: auto;
+    }
+    .pipeline-graph-inner {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        min-width: min-content;
+        padding: 0.5rem 0;
+    }
+    .pipeline-graph-stage {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .pipeline-graph-nodes {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .pipeline-graph-node {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 1rem;
+        min-width: 180px;
+        background: var(--gray-lightest);
+        border: 2px solid var(--gray-lighter);
+        border-radius: 999px;
+        font-size: 0.9rem;
+        opacity: 0;
+        animation: pipeline-node-enter 0.5s ease forwards;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .pipeline-graph-node:hover {
+        border-color: var(--primary-yellow);
+        box-shadow: 0 2px 12px rgba(244, 208, 63, 0.25);
+    }
+    .pipeline-graph-node.node-status-success { border-color: rgba(40, 167, 69, 0.6); }
+    .pipeline-graph-node.node-status-failed { border-color: rgba(220, 53, 69, 0.6); }
+    .pipeline-graph-node.node-status-running {
+        border-color: var(--primary-yellow);
+        animation: pipeline-node-enter 0.5s ease forwards, pipeline-pulse 1.5s ease-in-out infinite;
+    }
+    .pipeline-graph-node .node-status-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        color: white;
+    }
+    .pipeline-graph-node.node-status-success .node-status-icon { background: #28a745; }
+    .pipeline-graph-node.node-status-failed .node-status-icon { background: #dc3545; }
+    .pipeline-graph-node.node-status-running .node-status-icon {
+        background: linear-gradient(135deg, var(--primary-yellow) 0%, var(--primary-yellow-dark) 100%);
+        color: var(--gray-dark);
+    }
+    .pipeline-graph-node.node-status-pending .node-status-icon { background: var(--gray-light); }
+    .pipeline-graph-node.node-status-retry .node-status-icon { background: var(--primary-yellow-dark); color: white; }
+    .pipeline-graph-node.node-status-retry { border-color: rgba(243, 156, 18, 0.5); }
+    .pipeline-graph-node .node-body { flex: 1; min-width: 0; }
+    .pipeline-graph-node .node-name { font-weight: 600; color: var(--gray-dark); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pipeline-graph-node .node-subtitle { font-size: 0.75rem; color: var(--gray-light); display: block; }
+    .pipeline-graph-node .node-rerun {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gray-medium);
+        text-decoration: none;
+        transition: color 0.2s, background 0.2s;
+    }
+    .pipeline-graph-node .node-rerun:hover { color: var(--primary-yellow-dark); background: rgba(244, 208, 63, 0.15); }
+    .pipeline-graph-connector {
+        width: 32px;
+        min-width: 32px;
+        height: 2px;
+        background: linear-gradient(90deg, var(--gray-lighter) 0%, var(--gray-medium) 50%, var(--gray-lighter) 100%);
+        margin: 0 4px;
+        align-self: center;
+        position: relative;
+    }
+    .pipeline-graph-connector::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 5px solid transparent;
+        border-left-color: var(--gray-medium);
+        border-right: 0;
+    }
+    @keyframes pipeline-node-enter {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes pipeline-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(244, 208, 63, 0.3); }
+        50% { box-shadow: 0 0 0 8px rgba(244, 208, 63, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-diagram-3"></i> {{ pipeline.name }}</h1>
+        <p class="text-muted mb-0">{{ pipeline.description|default:"Sem descrição" }}</p>
+    </div>
+    <div>
+        <a href="{% url 'scheduler:task_create' %}?pipeline={{ pipeline.id }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Nova Tarefa
+        </a>
+        <a href="{% url 'scheduler:pipeline_update' pipeline.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil"></i> Editar
+        </a>
+    </div>
+</div>
+
+{% if execution_layers_with_status %}
+<div class="pipeline-graph" id="pipeline-graph">
+    <h6 class="text-muted mb-3"><i class="bi bi-diagram-3-fill"></i> Fluxo de execução</h6>
+    <div class="pipeline-graph-inner">
+        {% for layer in execution_layers_with_status %}
+        <div class="pipeline-graph-stage" style="animation-delay: {{ forloop.counter0 }}ms;">
+            <div class="pipeline-graph-nodes">
+                {% for item in layer %}
+                <div class="pipeline-graph-node node-status-{{ item.status }}" style="animation-delay: {{ forloop.parentloop.counter0|add:forloop.counter0|add:1 }}00ms;" data-task-id="{{ item.task.id }}">
+                    <span class="node-status-icon">
+                        {% if item.status == 'success' %}<i class="bi bi-check-lg"></i>
+                        {% elif item.status == 'failed' %}<i class="bi bi-x-lg"></i>
+                        {% elif item.status == 'running' %}<i class="bi bi-arrow-repeat"></i>
+                        {% elif item.status == 'retry' %}<i class="bi bi-arrow-clockwise"></i>
+                        {% else %}<i class="bi bi-circle"></i>{% endif %}
+                    </span>
+                    <div class="node-body">
+                        <span class="node-name">{{ item.task.name }}</span>
+                        <span class="node-subtitle">{{ item.task.get_script_type_display|default:"Tarefa" }}</span>
+                    </div>
+                    <form action="{% url 'scheduler:task_run' item.task.id %}" method="post" class="d-inline" title="Executar agora">
+                        {% csrf_token %}
+                        <button type="submit" class="node-rerun btn btn-link p-0 border-0"><i class="bi bi-play-fill"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% if not forloop.last %}
+        <div class="pipeline-graph-connector" aria-hidden="true"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-list-task"></i> Tarefas</h5>
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle pipeline-tasks-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="col-nome">Nome</th>
+                                <th class="col-agendamento">Agendamento</th>
+                                <th class="col-datas">Criado em</th>
+                                <th class="col-datas">Próxima execução</th>
+                                <th class="col-dep">Dependências</th>
+                                <th class="col-acoes">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td class="col-nome">
+                                    <span class="fw-semibold">{{ task.name }}</span>
+                                    {% if not task.is_active %}
+                                    <span class="badge bg-warning text-dark ms-1">Inativo</span>
+                                    {% endif %}
+                                    {% if task.has_running_execution %}
+                                    <span class="badge bg-primary ms-1">Em execução</span>
+                                    {% endif %}
+                                </td>
+                                <td class="col-agendamento">
+                                    <span class="cell-agendamento text-secondary">{{ task.get_schedule_display }}</span>
+                                </td>
+                                <td class="col-datas text-nowrap">
+                                    <span class="text-muted small">{{ task.created_at|date:"d/m/Y H:i" }}</span>
+                                </td>
+                                <td class="col-datas text-nowrap">
+                                    {% if task.next_run_time_dt %}
+                                    <span class="small">{{ task.next_run_time_dt|date:"d/m/Y H:i" }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="col-dep">
+                                    {% if task.depends_on.all %}
+                                    <div class="cell-dep">
+                                        {% for dep in task.depends_on.all %}
+                                        <span class="badge bg-info">{{ dep.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="col-acoes text-nowrap">
+                                    {% if task.has_running_execution %}
+                                    <form action="{% url 'scheduler:task_cancel' task.id %}" method="post" class="d-inline" title="Cancelar execução em andamento">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Cancelar a execução em andamento desta tarefa?');">
+                                            <i class="bi bi-stop-fill"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form action="{% url 'scheduler:task_run' task.id %}" method="post" class="d-inline" title="Executar agora">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-play-fill"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <a href="{% url 'scheduler:task_update' task.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'scheduler:task_delete' task.id %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Nenhuma tarefa cadastrada. 
+                    <a href="{% url 'scheduler:task_create' %}?pipeline={{ pipeline.id }}">Criar primeira tarefa</a>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-info-circle"></i> Informações</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Status:</strong> 
+                    {% if pipeline.is_active %}
+                    <span class="badge bg-success">Ativo</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Inativo</span>
+                    {% endif %}
+                </p>
+                <p><strong>Tarefas:</strong> {{ tasks|length }}</p>
+                <p><strong>Criado em:</strong> {{ pipeline.created_at|date:"d/m/Y H:i" }}</p>
+                {% if pipeline.created_by %}
+                <p><strong>Criado por:</strong> {{ pipeline.created_by.username }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="bi bi-clock-history"></i> Últimas Execuções</h5>
+            </div>
+            <div class="card-body">
+                {% if executions %}
+                <ul class="list-group list-group-flush">
+                    {% for execution in executions %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ execution.task.name }}</strong><br>
+                                <small class="text-muted">{{ execution.created_at|date:"d/m/Y H:i" }}</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                {% if execution.status == 'running' %}
+                                <form action="{% url 'scheduler:task_cancel' execution.task_id %}" method="post" class="d-inline" title="Cancelar execução">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-warning py-0" onclick="return confirm('Cancelar esta execução?');">
+                                        <i class="bi bi-stop-fill small"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
+                                    {{ execution.get_status_display }}
+                                </a>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">Nenhuma execução ainda</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

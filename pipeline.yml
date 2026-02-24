@@ -1,0 +1,6 @@
+tasks:
+  - name: teste_30s
+    script: "scripts/teste.py"
+    trigger:
+      type: interval
+      seconds: 30

@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Criar{% endif %} Tarefa - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-list-task"></i> {% if object %}Editar{% else %}Criar{% endif %} Tarefa</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.pipeline.id_for_label }}" class="form-label">Pipeline *</label>
+                        {{ form.pipeline }}
+                        {% if form.pipeline.errors %}
+                        <div class="text-danger">{{ form.pipeline.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Nome *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.description.id_for_label }}" class="form-label">Descrição</label>
+                {{ form.description }}
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.executor_type.id_for_label }}" class="form-label">Tipo de executor</label>
+                    {{ form.executor_type }}
+                    {% if form.executor_type.errors %}
+                    <div class="text-danger small">{{ form.executor_type.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mb-3" id="executor-config-wrap" style="display: none;">
+                <label for="{{ form.executor_config.id_for_label }}" class="form-label">Configuração do executor (RPA)</label>
+                {{ form.executor_config }}
+                {% if form.executor_config.errors %}
+                <div class="text-danger small">{{ form.executor_config.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">JSON. UiPath: {"process_file": "caminho.xaml"}. Blue Prism: {"process_name": "Nome", "user": "...", "password": "..."} ou {"sso": true}</small>
+            </div>
+            
+            <div class="row" id="script-fields-wrap" style="display: none;">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.script_path.id_for_label }}" class="form-label">Caminho do Script</label>
+                        {{ form.script_path }}
+                        {% if form.script_path.errors %}
+                        <div class="text-danger small">{{ form.script_path.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Obrigatório se executor = Script. Ex: scripts/meu_script.py</small>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label for="{{ form.script_type.id_for_label }}" class="form-label">Tipo de script</label>
+                        {{ form.script_type }}
+                    </div>
+                </div>
+                
+                <div class="col-md-3" id="interpreter-wrap" style="display: none;">
+                    <div class="mb-3">
+                        <label for="{{ form.script_interpreter_path.id_for_label }}" class="form-label">Interpretador</label>
+                        {{ form.script_interpreter_path }}
+                        <small class="form-text text-muted">Opcional. Ex: /app/venv/bin/python ou caminho do node, ruby, etc.</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.retries.id_for_label }}" class="form-label">Tentativas</label>
+                        {{ form.retries }}
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.retry_delay.id_for_label }}" class="form-label">Delay entre Tentativas (s)</label>
+                        {{ form.retry_delay }}
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.timeout.id_for_label }}" class="form-label">Timeout (s)</label>
+                        {{ form.timeout }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.depends_on.id_for_label }}" class="form-label">Depende de</label>
+                {{ form.depends_on }}
+                <small class="form-text text-muted">Segure Ctrl para selecionar múltiplas tarefas. Se houver dependências, a tarefa será executada logo após elas (agendamento não é necessário).</small>
+            </div>
+            
+            <div class="mb-3" id="schedule-config-wrap">
+                <label for="{{ form.schedule_config.id_for_label }}" class="form-label">Configuração do Agendamento (JSON)</label>
+                {{ form.schedule_config }}
+                {% if form.schedule_config.errors %}
+                <div class="text-danger small">{{ form.schedule_config.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">
+                    Opcional. Se a tarefa tiver dependências acima, este agendamento é ignorado (ela roda após as dependências).<br>
+                    O tipo (intervalo, diário, semanal, etc.) é inferido automaticamente.<br>
+                    <strong>Exemplos:</strong><br>
+                    <code>{"minutes": 30}</code> — a cada 30 min<br>
+                    <code>{"hour": 9, "minute": 0}</code> — diário às 09:00<br>
+                    <code>{"day_of_week": 0, "hour": 9, "minute": 0}</code> — toda segunda às 09:00 (0=seg, 6=dom)<br>
+                    <code>{"day": 1, "hour": 9, "minute": 0}</code> — dia 1 do mês às 09:00<br>
+                    <code>{"day_of_week": 0, "hour": 9, "minute": 0, "week": "*/2"}</code> — quinzenal (segunda a cada 2 semanas)<br>
+                    <code>{}</code> — diário à meia-noite
+                </small>
+            </div>
+            
+            <div class="mb-3 form-check">
+                {{ form.is_active }}
+                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                    Tarefa ativa
+                </label>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                {% if object %}
+                <a href="{% url 'scheduler:pipeline_detail' object.pipeline.id %}" class="btn btn-secondary">Cancelar</a>
+                {% elif create_pipeline_id %}
+                <a href="{% url 'scheduler:pipeline_detail' create_pipeline_id %}" class="btn btn-secondary">Cancelar</a>
+                {% else %}
+                <a href="{% url 'scheduler:pipeline_list' %}" class="btn btn-secondary">Cancelar</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function() {
+    var select = document.getElementById('id_executor_type');
+    var executorConfigWrap = document.getElementById('executor-config-wrap');
+    var interpreterWrap = document.getElementById('interpreter-wrap');
+    if (!select) return;
+    function toggle() {
+        var v = (select.value || '').toLowerCase();
+        var isScript = (v === 'script');
+        if (executorConfigWrap) executorConfigWrap.style.display = (v === 'uipath' || v === 'blueprism') ? '' : 'none';
+        if (interpreterWrap) interpreterWrap.style.display = isScript ? '' : 'none';
+        var scriptFieldsWrap = document.getElementById('script-fields-wrap');
+        if (scriptFieldsWrap) scriptFieldsWrap.style.display = isScript ? '' : 'none';
+    }
+    select.addEventListener('change', toggle);
+    toggle();
+})();
+
+(function() {
+    var dependsOn = document.getElementById('id_depends_on');
+    var scheduleWrap = document.getElementById('schedule-config-wrap');
+    if (!dependsOn || !scheduleWrap) return;
+    function toggleSchedule() {
+        var hasDeps = dependsOn.selectedOptions && dependsOn.selectedOptions.length > 0;
+        scheduleWrap.style.display = hasDeps ? 'none' : '';
+    }
+    dependsOn.addEventListener('change', toggleSchedule);
+    toggleSchedule();
+})();
+</script>
+{% endblock %}
+

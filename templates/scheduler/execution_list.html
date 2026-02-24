@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Execuções - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-clock-history"></i> Execuções</h1>
+        <p class="text-muted mb-0">Histórico de execuções de tarefas</p>
+    </div>
+    <div class="d-flex gap-1 flex-wrap">
+        <a href="{% url 'scheduler:execution_list' %}" class="btn btn-sm {% if not request.GET.status %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+        <a href="{% url 'scheduler:execution_list' %}?status=running" class="btn btn-sm {% if request.GET.status == 'running' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-arrow-repeat"></i> Em execução / Travadas
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tarefa</th>
+                        <th>Pipeline</th>
+                        <th>Status</th>
+                        <th>Iniciado</th>
+                        <th>Finalizado</th>
+                        <th>Duração</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for execution in executions %}
+                    <tr class="{% if execution.status == 'running' %}table-warning{% endif %}">
+                        <td>{{ execution.task.name }}</td>
+                        <td>{{ execution.pipeline.name }}</td>
+                        <td>
+                            <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
+                                {{ execution.get_status_display }}
+                            </a>
+                            {% if execution.status == 'running' and execution.id in stale_execution_ids %}
+                                <span class="badge bg-danger ms-1" title="Em execução há mais de 30 min">Travada</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ execution.created_at|date:"d/m/Y H:i:s" }}</td>
+                        <td>
+                            {% if execution.finished_at %}
+                                {{ execution.finished_at|date:"d/m/Y H:i:s" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if execution.duration %}
+                                {{ execution.duration|floatformat:2 }}s
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if execution.status == 'running' %}
+                            <form action="{% url 'scheduler:execution_cancel' execution.id %}" method="post" class="d-inline" title="Cancelar execução">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancelar esta execução?');">
+                                    <i class="bi bi-stop-fill"></i> Cancelar
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'scheduler:execution_detail' execution.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">Nenhuma execução encontrada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if is_paginated %}
+        <nav aria-label="Paginação">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

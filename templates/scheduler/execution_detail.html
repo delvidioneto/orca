@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Execução #{{ execution.id }} - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-clock-history"></i> Execução #{{ execution.id }}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Detalhes da Execução</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Tarefa:</th>
+                        <td>{{ execution.task.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Pipeline:</th>
+                        <td>{{ execution.pipeline.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td>
+                            <span class="badge-status status-{{ execution.status }}">
+                                {{ execution.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Iniciado em:</th>
+                        <td>{{ execution.created_at|date:"d/m/Y H:i:s" }}</td>
+                    </tr>
+                    {% if execution.finished_at %}
+                    <tr>
+                        <th>Finalizado em:</th>
+                        <td>{{ execution.finished_at|date:"d/m/Y H:i:s" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if execution.duration %}
+                    <tr>
+                        <th>Duração:</th>
+                        <td>{{ execution.duration|floatformat:2 }} segundos</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Código de Retorno:</th>
+                        <td>
+                            {% if execution.returncode == 0 %}
+                            <span class="badge bg-success">{{ execution.returncode }}</span>
+                            {% else %}
+                            <span class="badge bg-danger">{{ execution.returncode }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Tentativa:</th>
+                        <td>{{ execution.retry_count }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        {% if execution.stdout %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>Saída Padrão (stdout)</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-3 rounded"><code>{{ execution.stdout }}</code></pre>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if execution.stderr or execution.error_message %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>Erro (stderr)</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-danger text-white p-3 rounded"><code>{% if execution.error_message %}{{ execution.error_message }}{% else %}{{ execution.stderr }}{% endif %}</code></pre>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Ações</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'scheduler:execution_list' %}" class="btn btn-secondary w-100 mb-2">
+                    <i class="bi bi-arrow-left"></i> Voltar
+                </a>
+                <a href="{% url 'scheduler:pipeline_detail' execution.pipeline.id %}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-diagram-3"></i> Ver Pipeline
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

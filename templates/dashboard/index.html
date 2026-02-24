@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+    <p class="text-muted mb-0">Visão geral do sistema de orquestração</p>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <h5>Pipelines</h5>
+            <h2>{{ total_pipelines }}</h2>
+            <small>{{ active_pipelines }} ativos</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <h5>Tarefas</h5>
+            <h2>{{ total_tasks }}</h2>
+            <small>{{ active_tasks }} ativas</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <h5>Execuções (24h)</h5>
+            <h2>{{ executions_24h }}</h2>
+            <small>{{ success_24h }} sucesso</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <h5>Falhas (24h)</h5>
+            <h2>{{ failed_24h }}</h2>
+            <small>{{ running_24h }} em execução</small>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-clock-history"></i> Execuções Recentes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tarefa</th>
+                                <th>Pipeline</th>
+                                <th>Status</th>
+                                <th>Iniciado</th>
+                                <th>Duração</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for execution in recent_executions %}
+                            <tr>
+                                <td>{{ execution.task.name }}</td>
+                                <td>{{ execution.pipeline.name }}</td>
+                                <td>
+                                    <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
+                                        {{ execution.get_status_display }}
+                                    </a>
+                                </td>
+                                <td>{{ execution.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if execution.duration %}
+                                        {{ execution.duration|floatformat:2 }}s
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">Nenhuma execução recente</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-end mt-3">
+                    <a href="{% url 'scheduler:execution_list' %}" class="btn btn-sm btn-outline-primary">
+                        Ver todas <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-exclamation-triangle"></i> Tarefas com Falhas</h5>
+            </div>
+            <div class="card-body">
+                {% if failed_tasks %}
+                <ul class="list-group list-group-flush">
+                    {% for task in failed_tasks %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ task.task__name }}</strong><br>
+                            <small class="text-muted">{{ task.task__pipeline__name }}</small>
+                        </div>
+                        <span class="badge bg-danger">{{ task.count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">Nenhuma falha nas últimas 24h</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-diagram-3"></i> Pipelines</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Tarefas</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pipeline in pipeline_stats %}
+                            <tr>
+                                <td>
+                                    <strong>{{ pipeline.name }}</strong>
+                                    {% if pipeline.description %}
+                                    <br><small class="text-muted">{{ pipeline.description|truncatewords:10 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ pipeline.active_tasks }}/{{ pipeline.total_tasks }}</span>
+                                </td>
+                                <td>
+                                    {% if pipeline.is_active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'scheduler:pipeline_detail' pipeline.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    Nenhum pipeline cadastrado. 
+                                    <a href="{% url 'scheduler:pipeline_create' %}">Criar primeiro pipeline</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

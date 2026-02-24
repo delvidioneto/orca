@@ -1,0 +1,11 @@
+Django==4.2.7
+APScheduler==3.10.4
+PyYAML==6.0.1
+pytz==2023.3
+networkx==3.2.1
+psutil==5.9.6
+python-decouple==3.8
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+markdown==3.5.1
+

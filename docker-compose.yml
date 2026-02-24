@@ -1,0 +1,54 @@
+services:
+  web:
+    build: .
+    container_name: orca_web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./logs:/app/logs
+      - ./media:/app/media
+      - postgres_data:/var/lib/postgresql/data
+      - staticfiles:/app/staticfiles
+    environment:
+      - DEBUG=False
+      - CREATE_SUPERUSER=${CREATE_SUPERUSER:-false}
+      - DATABASE=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=orca
+      - DB_USER=orca
+      - DB_PASSWORD=${DB_PASSWORD:-orca123}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - TIME_ZONE=America/Sao_Paulo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    command: gunicorn orca_project.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:15-alpine
+    container_name: orca_db
+    environment:
+      - POSTGRES_DB=orca
+      - POSTGRES_USER=orca
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-orca123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orca"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  staticfiles:

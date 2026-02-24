@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Deletar Pipeline - Orca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-exclamation-triangle"></i> Deletar Pipeline</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p>Tem certeza que deseja deletar o pipeline <strong>{{ object.name }}</strong>?</p>
+        <p class="text-danger">Esta ação não pode ser desfeita. Todas as tarefas e execuções relacionadas serão mantidas.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'scheduler:pipeline_list' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Deletar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
