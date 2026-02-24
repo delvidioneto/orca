@@ -13,6 +13,7 @@ services:
     environment:
       - DEBUG=False
       - CREATE_SUPERUSER=${CREATE_SUPERUSER:-false}
+      - ORCA_VERSION=${ORCA_VERSION:-0.0.0}
       - DATABASE=postgres
       - DB_HOST=db
       - DB_PORT=5432

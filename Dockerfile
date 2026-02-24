@@ -22,6 +22,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia o projeto
 COPY . .
 
+# Versão para o rodapé (build-arg opcional: docker build --build-arg VERSION=$(git describe --tags --always))
+ARG VERSION=0.0.0
+RUN echo "$VERSION" > /app/VERSION
+
 # Cria diretórios necessários
 RUN mkdir -p /app/logs /app/staticfiles /app/media /app/scripts
 

@@ -34,11 +34,18 @@ docker-compose -f docker-compose.dev.yml up -d
 export SECRET_KEY="sua-chave-secreta"
 export DB_PASSWORD="senha-segura"
 
+# (Opcional) Versão exibida no rodapé da aplicação
+export ORCA_VERSION=$(git describe --tags --always)
+
 # Build e start
 docker-compose up -d
 ```
 
 Veja o [Guia Docker completo](DOCKER.md) para mais detalhes.
+
+### Opção 3: Launcher (Windows)
+
+Para Windows há um launcher que sobe o Orca (Docker ou Sem Docker), coloca o ícone na bandeja e pode iniciar com o Windows. Veja [launcher/README.md](launcher/README.md).
 
 ### Opção 2: Instalação Manual
 
@@ -162,6 +169,7 @@ orca/
 ├── orca_project/          # Configurações Django
 │   ├── settings.py
 │   ├── urls.py
+│   ├── version.py         # Versão (Git / VERSION / ORCA_VERSION)
 │   └── wsgi.py
 ├── accounts/              # App de autenticação
 ├── dashboard/             # App do dashboard
@@ -175,12 +183,33 @@ orca/
 ├── static/                # Arquivos estáticos
 ├── scripts/               # Scripts a serem executados
 ├── logs/                  # Logs do sistema
+├── docs/                  # Documentação (exibida na interface)
+├── githooks/              # Hooks Git (ex.: pre-commit para atualizar VERSION)
+├── launcher/              # Launcher Windows (bandeja, Docker/Sem Docker)
 ├── manage.py
 ├── requirements.txt
+├── VERSION                # Versão (fallback quando não há Git)
 └── README.md
 ```
 
 ## 🔧 Configuração Avançada
+
+### Versão (rodapé da aplicação)
+
+A versão exibida no rodapé e no launcher é obtida nesta ordem:
+
+1. **Variável de ambiente `ORCA_VERSION`** — útil em Docker: `ORCA_VERSION=$(git describe --tags --always) docker compose up -d`
+2. **Git** — `git describe --tags --always` na raiz do projeto
+3. **Arquivo `VERSION`** na raiz — uma linha com a versão (ex.: `v1.0.1`)
+4. **Fallback** — `0.0.0`
+
+**Atualizar `VERSION` automaticamente a cada commit (recomendado):** instale o hook de pre-commit uma vez:
+
+```bash
+cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+A partir daí, em todo `git commit` o arquivo `VERSION` é atualizado com `git describe --tags --always` e incluído no próprio commit. Assim você não precisa atualizar o `VERSION` manualmente antes do push.
 
 ### Executando o Scheduler Separadamente
 

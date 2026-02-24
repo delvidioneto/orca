@@ -1,0 +1,12 @@
+#!/bin/sh
+# Atualiza o arquivo VERSION na raiz do projeto com git describe (para o rodapé da app).
+# Instale: cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# A cada commit, VERSION é atualizado e incluído no próprio commit.
+
+ROOT=$(git rev-parse --show-toplevel)
+VERSION_FILE="$ROOT/VERSION"
+DESCRIBE=$(git describe --tags --always 2>/dev/null)
+[ -n "$DESCRIBE" ] || DESCRIBE="0.0.0"
+echo "$DESCRIBE" > "$VERSION_FILE"
+git add "$VERSION_FILE" 2>/dev/null || true
+exit 0

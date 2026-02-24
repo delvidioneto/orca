@@ -14,6 +14,7 @@ services:
     environment:
       - DEBUG=True
       - CREATE_SUPERUSER=true
+      - ORCA_VERSION=${ORCA_VERSION:-0.0.0}
       - DATABASE=sqlite
       - TIME_ZONE=America/Sao_Paulo
     restart: unless-stopped
