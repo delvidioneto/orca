@@ -1,12 +1,49 @@
 #!/bin/sh
-# Atualiza o arquivo VERSION na raiz do projeto com git describe (para o rodapé da app).
+# Atualiza o arquivo VERSION na raiz do projeto com versão semântica (ex.: v1.0.2).
+# Se há commits após a última tag (ex.: v1.0.1), o patch é incrementado (v1.0.1-1-gHASH -> v1.0.2).
 # Instale: cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
-# A cada commit, VERSION é atualizado e incluído no próprio commit.
 
 ROOT=$(git rev-parse --show-toplevel)
 VERSION_FILE="$ROOT/VERSION"
-DESCRIBE=$(git describe --tags --always 2>/dev/null)
-[ -n "$DESCRIBE" ] || DESCRIBE="0.0.0"
-echo "$DESCRIBE" > "$VERSION_FILE"
-git add "$VERSION_FILE" 2>/dev/null || true
+DESCRIBE=$(git describe --tags --long 2>/dev/null)
+
+write_version() {
+    echo "$1" > "$VERSION_FILE"
+    git add "$VERSION_FILE" 2>/dev/null || true
+}
+
+if [ -z "$DESCRIBE" ]; then
+    write_version "0.0.0"
+    exit 0
+fi
+
+# Formato: TAG-N-gHASH (ex.: v1.0.1-1-g9d22b19)
+if echo "$DESCRIBE" | grep -qE '^.+-[0-9]+-g[0-9a-f]+$'; then
+    TAG=$(echo "$DESCRIBE" | sed -E 's/^(.+)-[0-9]+-g[0-9a-f]+$/\1/')
+    COMMITS=$(echo "$DESCRIBE" | sed -E 's/^.+-([0-9]+)-g[0-9a-f]+$/\1/')
+else
+    write_version "0.0.0"
+    exit 0
+fi
+
+# Se estamos exatamente na tag (0 commits), usa a tag
+if [ "$COMMITS" = "0" ]; then
+    write_version "$TAG"
+    exit 0
+fi
+
+# Se a tag é semver (vX.Y.Z), incrementa o patch com o número de commits
+if echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    VER=${TAG#v}
+    MAJOR=${VER%%.*}
+    REST=${VER#*.}
+    MINOR=${REST%%.*}
+    PATCH=${REST#*.}
+    [ -z "$PATCH" ] && PATCH=0
+    PATCH=$((PATCH + COMMITS))
+    write_version "v${MAJOR}.${MINOR}.${PATCH}"
+else
+    # Tag não é semver: grava o describe original
+    write_version "$DESCRIBE"
+fi
 exit 0

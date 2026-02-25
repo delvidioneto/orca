@@ -6,8 +6,13 @@ def infer_schedule_type(config):
     """
     Infere o schedule_type a partir do JSON de configuração.
     Assim o formulário pode ter só o campo JSON e o tipo é definido automaticamente.
+    Lista de {hour, minute} = diário com vários horários (DAILY).
     """
-    if not config or not isinstance(config, dict):
+    if not config:
+        return ScheduleType.DAILY
+    if isinstance(config, list):
+        return ScheduleType.DAILY
+    if not isinstance(config, dict):
         return ScheduleType.DAILY
     # Intervalo: seconds, minutes, hours ou days
     if any(k in config for k in ('seconds', 'minutes', 'hours', 'days')):

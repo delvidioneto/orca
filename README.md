@@ -1,286 +1,253 @@
-# 🐋 Orca – Orquestrador de Scripts Profissional
+# 🐋 Orca – Orquestrador de Scripts
 
-Orca é um sistema completo de orquestração de scripts similar ao Airflow, desenvolvido em Django com APScheduler. Permite criar pipelines complexos com dependências, agendamento flexível e interface web amigável.
+## O que é o Orca
 
-## ✨ Características
+O **Orca** é um sistema de orquestração de scripts para automação e agendamento de tarefas. Inspirado em ferramentas como o Airflow, ele permite criar **pipelines** com dependências entre tarefas (DAGs), agendar execuções em horários fixos ou por intervalo e acompanhar tudo por uma **interface web**. É desenvolvido em **Django** e usa **APScheduler** para o agendamento, com suporte a Python, Batch, PowerShell e outros tipos de script.
 
-- ✅ **Execução não-bloqueante** com ThreadPoolExecutor
-- ✅ **Pipelines com DAGs** - Dependências entre tarefas
-- ✅ **Múltiplos tipos de script** - Python (.py), Batch (.bat), PowerShell (.ps1)
-- ✅ **Agendamento flexível** - Diário, semanal, mensal, quinzenal, cron
-- ✅ **Interface web moderna** - Dashboard e gerenciamento completo
-- ✅ **Sistema de retry** - Retentativas automáticas em caso de falha
-- ✅ **Histórico completo** - Todas as execuções são registradas
-- ✅ **Escalável** - Suporta múltiplas execuções paralelas
+Ideal para rotinas de ETL, relatórios agendados, integrações e qualquer fluxo que precise rodar em horários definidos ou após a conclusão de outras tarefas.
 
-## 🚀 Instalação
+---
 
-### Opção 1: Docker (Recomendado) 🐳
+## Características
 
-A forma mais fácil de executar o Orca é usando Docker. **O Orca não usa venv próprio no container** — as dependências vão na imagem. O venv é do *script do usuário*: na tarefa você pode informar o caminho do Python do ambiente dele (ex: `/app/venv/bin/python`) e o Orca executa o script com esse interpretador.
+- **Pipelines com DAGs** — Defina dependências entre tarefas; cada uma só roda quando as anteriores forem concluídas.
+- **Agendamento flexível** — Diário, semanal, mensal, quinzenal, por intervalo ou cron; vários horários por dia na mesma tarefa.
+- **Múltiplos tipos de script** — Python (.py), Batch (.bat), PowerShell (.ps1), Node, Shell, etc.
+- **Interface web** — Dashboard, listagem de pipelines, tarefas e histórico de execuções.
+- **Execução paralela** — Várias tarefas podem rodar ao mesmo tempo; execução não bloqueante.
+- **Retentativas** — Configure número de retries e delay em caso de falha.
+- **Histórico** — Todas as execuções ficam registradas com status e logs.
+
+---
+
+## Instalação
+
+### Com Docker (recomendado)
+
+A forma mais simples é usar Docker. O Orca sobe com banco (PostgreSQL em produção ou SQLite em dev) e não usa venv dentro do container — dependências vão na imagem. Para scripts do usuário, você pode informar o caminho do interpretador na tarefa (ex.: Python de um venv montado).
 
 **Desenvolvimento:**
-```bash
-# Build e start
-docker-compose -f docker-compose.dev.yml up -d
 
-# Acesse http://localhost:8000
-# Login: admin / admin123
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+# Acesse http://localhost:8000 — login: admin / admin123
 ```
 
 **Produção:**
+
 ```bash
-# Configure variáveis
 export SECRET_KEY="sua-chave-secreta"
 export DB_PASSWORD="senha-segura"
-
-# (Opcional) Versão exibida no rodapé da aplicação
-export ORCA_VERSION=$(git describe --tags --always)
-
-# Build e start
+# Opcional: export ORCA_VERSION=1.0.2
 docker-compose up -d
 ```
 
-Veja o [Guia Docker completo](DOCKER.md) para mais detalhes.
+Detalhes: [DOCKER.md](DOCKER.md).
 
-### Opção 3: Launcher (Windows)
+### Sem Docker (manual)
 
-Para Windows há um launcher que sobe o Orca (Docker ou Sem Docker), coloca o ícone na bandeja e pode iniciar com o Windows. Veja [launcher/README.md](launcher/README.md).
+1. **Clone e entre na pasta do projeto**
 
-### Opção 2: Instalação Manual
+   ```bash
+   cd orca
+   ```
 
-#### 1. Clone o repositório
+2. **Crie e ative um ambiente virtual**
 
-```bash
-cd orca
-```
+   ```bash
+   python -m venv venv
+   source venv/bin/activate   # Linux/Mac
+   # ou: venv\Scripts\activate   # Windows
+   ```
 
-#### 2. Crie um ambiente virtual
+3. **Instale dependências**
 
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate  # Windows
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-#### 3. Instale as dependências
+4. **Banco e superusuário**
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   python manage.py migrate
+   python manage.py createsuperuser
+   ```
 
-#### 4. Configure o banco de dados
+5. **Inicie o servidor**
 
-```bash
-python manage.py migrate
-```
+   ```bash
+   python manage.py runserver
+   ```
 
-#### 5. Crie um superusuário
+   O scheduler sobe junto com o Django. Acesse `http://localhost:8000`.
 
-```bash
-python manage.py createsuperuser
-```
+### Windows com .bat
 
-#### 6. Execute o servidor
+Na raiz do projeto há scripts para Windows:
 
-```bash
-python manage.py runserver
-```
+| Arquivo | Função |
+|--------|--------|
+| **IniciarOrca.bat** | Cria `.venv` se não existir, instala dependências, roda `migrate` e sobe o servidor (janela de console). |
+| **IniciarOrca.vbs** | Inicia o Orca em segundo plano (sem janela), chamando o `IniciarOrca.bat`. |
+| **PararOrca.bat** | Encerra o processo do Orca. |
+| **AdicionarInicioWindows.bat** | Adiciona início automático do Orca ao ligar o PC (uma execução). |
+| **RemoverInicioWindows.bat** | Remove o início automático. |
 
-O scheduler será iniciado automaticamente quando o servidor Django iniciar.
+Requisito: Python no PATH (`python` ou `py`). Para rodar sem ver a janela, use **IniciarOrca.vbs**.
 
-## 📖 Uso
+**Launcher (bandeja do sistema):** para ícone na bandeja, iniciar com o Windows e opção Docker ou Sem Docker, use o launcher em [launcher/README.md](launcher/README.md).
 
-### Acessando a Interface Web
+---
 
-1. Acesse `http://localhost:8000`
-2. Faça login com o superusuário criado
-3. Navegue pelo menu lateral:
-   - **Dashboard**: Visão geral do sistema
-   - **Pipelines**: Gerenciar pipelines e tarefas
-   - **Execuções**: Histórico de execuções
+## Uso
 
-### Criando um Pipeline
+### Interface web
 
-1. Vá em **Pipelines** → **Novo Pipeline**
-2. Preencha nome e descrição
-3. Clique em **Salvar**
+1. Acesse `http://localhost:8000` e faça login.
+2. Menu principal:
+   - **Dashboard** — Visão geral.
+   - **Pipelines** — Criar e editar pipelines e tarefas.
+   - **Execuções** — Histórico de execuções.
 
-### Adicionando Tarefas
+### Criar pipeline e tarefas
 
-1. Abra o pipeline desejado
-2. Clique em **Nova Tarefa**
-3. Configure:
-   - **Nome**: Nome da tarefa
-   - **Script**: Caminho do script (ex: `scripts/meu_script.py`)
-   - **Tipo**: Python, Batch ou PowerShell
-   - **Interpretador** (opcional): Caminho do Python do ambiente do usuário (ex: `/app/venv/bin/python`). Em branco usa o do sistema (PATH). Útil quando o script depende de um venv montado no container.
-   - **Agendamento**: Escolha o tipo e configure (veja exemplos abaixo)
-   - **Dependências**: Selecione tarefas que devem executar antes
-   - **Retries**: Número de tentativas em caso de falha
+1. **Pipelines** → **Novo Pipeline** → nome e descrição → Salvar.
+2. Abra o pipeline → **Nova Tarefa** e configure:
+   - Nome, script (ex.: `scripts/meu_script.py`), tipo (Python, Batch, PowerShell…).
+   - **Interpretador** (opcional): caminho do Python/venv (ex.: `/app/venv/bin/python`).
+   - **Agendamento**: JSON conforme os exemplos abaixo.
+   - **Dependências**: tarefas que precisam rodar antes.
+   - **Retries** e delay entre tentativas.
 
-### Tipos de Agendamento
+### Tipos de agendamento (JSON)
 
-#### Diário
+**Diário (um horário):**
+
 ```json
 {"hour": 9, "minute": 0}
 ```
 
-#### Semanal (Toda Segunda-feira às 9h)
+**Diário (vários horários na mesma tarefa):**
+
+```json
+[
+  {"hour": 8, "minute": 0},
+  {"hour": 10, "minute": 30},
+  {"hour": 14, "minute": 18}
+]
+```
+
+**Semanal (ex.: segunda às 9h):** `0` = segunda … `6` = domingo
+
 ```json
 {"day_of_week": 0, "hour": 9, "minute": 0}
 ```
-- 0 = Segunda-feira
-- 1 = Terça-feira
-- ...
-- 6 = Domingo
 
-#### Mensal (Dia 1 de cada mês às 9h)
+**Mensal (dia 1 às 9h):**
+
 ```json
 {"day": 1, "hour": 9, "minute": 0}
 ```
 
-#### Quinzenal (A cada 2 semanas, Segunda às 9h)
+**Quinzenal (a cada 2 semanas):**
+
 ```json
 {"day_of_week": 0, "hour": 9, "minute": 0}
 ```
-O sistema automaticamente executa a cada 2 semanas.
 
-#### Intervalo (A cada 30 minutos)
+**Intervalo (ex.: a cada 30 min):**
+
 ```json
 {"minutes": 30}
 ```
 
-#### Cron Completo
-Use o tipo "Cron" e configure:
+**Cron completo:**
+
 ```json
-{
-  "minute": "*/5",
-  "hour": "*",
-  "day_of_week": "0-4"
-}
+{"minute": "*/5", "hour": "*", "day_of_week": "0-4"}
 ```
 
-## 🏗️ Estrutura do Projeto
+---
+
+## Estrutura do projeto
 
 ```
 orca/
-├── orca_project/          # Configurações Django
-│   ├── settings.py
-│   ├── urls.py
-│   ├── version.py         # Versão (Git / VERSION / ORCA_VERSION)
-│   └── wsgi.py
-├── accounts/              # App de autenticação
-├── dashboard/             # App do dashboard
-├── scheduler/             # App principal
-│   ├── models.py          # Pipeline, Task, TaskExecution
-│   ├── executor.py        # Executor de scripts
-│   ├── scheduler_manager.py  # Gerenciador APScheduler
-│   ├── dag_manager.py     # Gerenciador de DAGs
-│   └── views.py           # Views CRUD
+├── orca_project/          # Configurações Django (settings, urls, version, wsgi)
+├── accounts/              # Autenticação
+├── dashboard/             # Dashboard
+├── scheduler/             # Pipelines, tarefas, agendamento (APScheduler), executor
 ├── templates/             # Templates HTML
 ├── static/                # Arquivos estáticos
 ├── scripts/               # Scripts a serem executados
 ├── logs/                  # Logs do sistema
-├── docs/                  # Documentação (exibida na interface)
-├── githooks/              # Hooks Git (ex.: pre-commit para atualizar VERSION)
-├── launcher/              # Launcher Windows (bandeja, Docker/Sem Docker)
+├── docs/                  # Documentação (interface)
+├── githooks/              # Hook pre-commit (atualiza VERSION)
+├── launcher/              # Launcher Windows (bandeja)
 ├── manage.py
 ├── requirements.txt
-├── VERSION                # Versão (fallback quando não há Git)
+├── VERSION                # Versão exibida (semântica)
+├── IniciarOrca.bat        # Iniciar Orca no Windows (sem Docker)
+├── IniciarOrca.vbs        # Iniciar em segundo plano
+├── PararOrca.bat
 └── README.md
 ```
 
-## 🔧 Configuração Avançada
+---
 
-### Versão (rodapé da aplicação)
+## Configuração avançada
 
-A versão exibida no rodapé e no launcher é obtida nesta ordem:
+### Versão (rodapé)
 
-1. **Variável de ambiente `ORCA_VERSION`** — útil em Docker: `ORCA_VERSION=$(git describe --tags --always) docker compose up -d`
-2. **Git** — `git describe --tags --always` na raiz do projeto
-3. **Arquivo `VERSION`** na raiz — uma linha com a versão (ex.: `v1.0.1`)
-4. **Fallback** — `0.0.0`
-
-**Atualizar `VERSION` automaticamente a cada commit (recomendado):** instale o hook de pre-commit uma vez:
+Ordem de leitura: variável **`ORCA_VERSION`** → arquivo **`VERSION`** → Git → `0.0.0`. Para gerar `VERSION` automaticamente a cada commit (ex.: `v1.0.2`):
 
 ```bash
 cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
-A partir daí, em todo `git commit` o arquivo `VERSION` é atualizado com `git describe --tags --always` e incluído no próprio commit. Assim você não precisa atualizar o `VERSION` manualmente antes do push.
+O hook incrementa o patch quando há commits após a última tag (ex.: tag `v1.0.1` + 1 commit → `v1.0.2`).
 
-### Executando o Scheduler Separadamente
-
-Se preferir executar o scheduler em um processo separado:
+### Scheduler em processo separado
 
 ```bash
 python manage.py start_scheduler
 ```
 
-### Configurando Timezone
+### Timezone
 
-Edite `orca_project/settings.py`:
-
-```python
-TIME_ZONE = 'America/Sao_Paulo'  # Ajuste conforme necessário
-```
-
-### Ajustando Pool de Threads
-
-Edite `scheduler/scheduler_manager.py`:
+Em `orca_project/settings.py`:
 
 ```python
-executors = {
-    'default': ThreadPoolExecutor(20),  # Ajuste o número de threads
-}
+TIME_ZONE = 'America/Sao_Paulo'
 ```
 
-## 📝 Exemplos de Scripts
+### Pool de threads
 
-### Python (scripts/exemplo.py)
+Em `scheduler/scheduler_manager.py`:
+
 ```python
-from datetime import datetime
-import sys
-
-print(f"Script executado às {datetime.now()}")
-sys.exit(0)  # 0 = sucesso
+executors = { 'default': ThreadPoolExecutor(20) }  # Ajuste conforme necessário
 ```
 
-### Batch (scripts/exemplo.bat)
-```batch
-@echo off
-echo Script batch executado
-exit /b 0
-```
+---
 
-### PowerShell (scripts/exemplo.ps1)
-```powershell
-Write-Host "Script PowerShell executado"
-exit 0
-```
+## Troubleshooting
 
-## 🐛 Troubleshooting
+| Problema | O que verificar |
+|----------|------------------|
+| **Scheduler não inicia** | Logs em `logs/orca.log`; Django rodando; teste manual: `python manage.py start_scheduler`. |
+| **Scripts não executam** | Caminho do script correto; permissão de execução; logs da execução na interface. |
+| **Dependências não funcionam** | Tarefas dependentes ativas; ausência de ciclos no DAG. |
+| **Erro ao iniciar no Windows (.bat)** | Python no PATH (`python` ou `py`); mensagens em `orca_err.txt` na raiz do projeto. |
 
-### Scheduler não inicia
-- Verifique os logs em `logs/orca.log`
-- Certifique-se de que o Django está rodando
-- Tente executar manualmente: `python manage.py start_scheduler`
+---
 
-### Scripts não executam
-- Verifique se o caminho do script está correto
-- Certifique-se de que o script tem permissão de execução
-- Verifique os logs de execução na interface web
+## Licença
 
-### Dependências não funcionam
-- Certifique-se de que as tarefas dependentes estão ativas
-- Verifique se não há ciclos nas dependências (DAG inválido)
+Este projeto é de código aberto e está disponível para uso conforme os termos do repositório.
 
-## 📄 Licença
+---
 
-Este projeto é de código aberto e está disponível para uso livre.
+## Contribuindo
 
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
+Contribuições são bem-vindas: correções, melhorias de documentação e novas funcionalidades. Abra uma **issue** para discussão ou envie um **pull request** com as alterações.

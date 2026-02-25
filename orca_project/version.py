@@ -1,5 +1,5 @@
 """
-Versão do Orca: variável de ambiente ORCA_VERSION, Git (git describe), arquivo VERSION ou 0.0.0.
+Versão do Orca: variável de ambiente ORCA_VERSION, arquivo VERSION (semântico), Git ou 0.0.0.
 Usado no Django (context processor) e no launcher.
 """
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def get_version():
-    """Retorna a versão. Ordem: 1) ORCA_VERSION 2) Git 3) arquivo VERSION 4) 0.0.0."""
+    """Retorna a versão. Ordem: 1) ORCA_VERSION 2) arquivo VERSION 3) Git 4) 0.0.0."""
     # Override por variável de ambiente (útil em Docker: docker run -e ORCA_VERSION=1.0.0)
     env_version = os.environ.get("ORCA_VERSION", "").strip()
     if env_version:
@@ -21,7 +21,17 @@ def get_version():
     except Exception:
         base = Path(__file__).resolve().parent.parent
 
-    # 1) Git
+    # 1) Arquivo VERSION na raiz (atualizado pelo hook com versão semântica, ex.: v1.0.2)
+    version_file = base / "VERSION"
+    if version_file.is_file():
+        try:
+            value = version_file.read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except Exception:
+            pass
+
+    # 2) Git (fallback quando não há VERSION)
     try:
         r = subprocess.run(
             ["git", "describe", "--tags", "--always"],
@@ -34,15 +44,5 @@ def get_version():
             return r.stdout.strip()
     except Exception:
         pass
-
-    # 2) Arquivo VERSION na raiz do projeto
-    version_file = base / "VERSION"
-    if version_file.is_file():
-        try:
-            value = version_file.read_text(encoding="utf-8").strip()
-            if value:
-                return value
-        except Exception:
-            pass
 
     return "0.0.0"

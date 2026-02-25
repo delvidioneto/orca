@@ -5,8 +5,10 @@
 import os
 from pathlib import Path
 
-# Pasta do spec = launcher/; projeto Orca = pai do pai
+# Pasta do spec: launcher/. Se rodar da raiz (pyinstaller build_exe.spec), SPECPATH = build_exe.spec → parent = raiz; então usar raiz/launcher
 _spec_dir = Path(os.path.abspath(SPECPATH)).parent
+if not (_spec_dir / 'orca_launcher.py').exists():
+    _spec_dir = _spec_dir / 'launcher'
 orca_root = _spec_dir.parent
 logo = orca_root / 'static' / 'images' / 'logo.png'
 datas = []

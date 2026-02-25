@@ -96,11 +96,11 @@ def show_mode_dialog():
 
     def on_docker():
         choice[0] = "docker"
-        root.destroy()
+        top.destroy()
 
     def on_standalone():
         choice[0] = "standalone"
-        root.destroy()
+        top.destroy()
 
     root = tk.Tk()
     root.withdraw()
@@ -319,10 +319,18 @@ def set_startup(enabled: bool):
         pass
 
 
-# --- Versão (Git) ---
+# --- Versão (VERSION / Git) ---
 
 def get_local_version(project_root: Path):
-    """Versão local via git describe."""
+    """Versão local: arquivo VERSION (semântico) ou git describe."""
+    version_file = project_root / "VERSION"
+    if version_file.is_file():
+        try:
+            value = version_file.read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        except Exception:
+            pass
     try:
         r = subprocess.run(
             ["git", "describe", "--tags", "--always"],

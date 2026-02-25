@@ -114,6 +114,23 @@ class SchedulerManager:
         for task in tasks:
             self.schedule_task(task)
     
+    def _remove_task_jobs(self, task_id: int):
+        """Remove todos os jobs associados a uma tarefa (job único ou múltiplos horários)."""
+        prefix = f"task_{task_id}"
+        for job in self.scheduler.get_jobs():
+            if job.id == prefix:
+                try:
+                    self.scheduler.remove_job(job.id)
+                except Exception:
+                    pass
+            elif job.id.startswith(prefix + "_"):
+                suffix = job.id[len(prefix) + 1:]
+                if suffix.isdigit():
+                    try:
+                        self.scheduler.remove_job(job.id)
+                    except Exception:
+                        pass
+
     def schedule_task(self, task: Task):
         """Agenda uma tarefa individual. Tarefas com dependências não são agendadas por cron: rodam após as dependências."""
         if not self.is_running:
@@ -123,22 +140,41 @@ class SchedulerManager:
             logger.info(f"Tarefa {task.name} não agendada por cron (será executada após as dependências concluírem)")
             return
 
-        job_id = f"task_{task.id}"
-        
-        # Remove job existente se houver
-        try:
-            self.scheduler.remove_job(job_id)
-        except Exception:
-            pass
-        
-        # Cria trigger baseado no tipo de agendamento
+        config = task.schedule_config or {}
+        tz = timezone(settings.TIME_ZONE)
+
+        # Remove todos os jobs existentes desta tarefa
+        self._remove_task_jobs(task.id)
+
+        # Vários horários por dia: lista [{"hour": 8, "minute": 0}, ...]
+        if isinstance(config, list) and len(config) > 0:
+            added = 0
+            for i, item in enumerate(config):
+                if not isinstance(item, dict):
+                    continue
+                hour = item.get('hour', 0)
+                minute = item.get('minute', 0)
+                trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
+                job_id = f"task_{task.id}_{i}"
+                self.scheduler.add_job(
+                    self._execute_task_wrapper,
+                    trigger=trigger,
+                    id=job_id,
+                    name=f"{task.pipeline.name} - {task.name}",
+                    args=[task.id],
+                    replace_existing=True
+                )
+                added += 1
+            if added:
+                logger.info(f"Tarefa {task.name} agendada em {added} horário(s) (IDs: task_{task.id}_0..task_{task.id}_{added - 1})")
+            return
+
+        # Um único horário: comportamento original
         trigger = self._create_trigger(task)
-        
         if not trigger:
             logger.warning(f"Não foi possível criar trigger para tarefa {task.id}")
             return
-        
-        # Adiciona job
+        job_id = f"task_{task.id}"
         self.scheduler.add_job(
             self._execute_task_wrapper,
             trigger=trigger,
@@ -147,19 +183,23 @@ class SchedulerManager:
             args=[task.id],
             replace_existing=True
         )
-        
         logger.info(f"Tarefa {task.name} agendada (ID: {job_id})")
     
     def get_next_run_time(self, task_id: int):
         """Retorna o datetime da próxima execução da tarefa, ou None se não agendada."""
         if not self.is_running or not self.scheduler:
             return None
-        job_id = f"task_{task_id}"
+        prefix = f"task_{task_id}"
+        next_times = []
         try:
-            job = self.scheduler.get_job(job_id)
-            if job and job.next_run_time:
-                return job.next_run_time
-            return None
+            for job in self.scheduler.get_jobs():
+                if job.id == prefix:
+                    if job.next_run_time:
+                        next_times.append(job.next_run_time)
+                elif job.id.startswith(prefix + "_") and job.id[len(prefix) + 1:].isdigit():
+                    if job.next_run_time:
+                        next_times.append(job.next_run_time)
+            return min(next_times) if next_times else None
         except Exception:
             return None
     

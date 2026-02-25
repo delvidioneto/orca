@@ -119,8 +119,14 @@ class Task(models.Model):
         """
         Retorna descrição legível do agendamento a partir do JSON (schedule_config).
         Ex: {"minutes": 30} -> "Execução a cada 30 minutos"
+        Lista [{"hour": 8, "minute": 0}, ...] -> "Execução diária às 08:00, 10:30, 14:18"
         """
         config = self.schedule_config or {}
+        if isinstance(config, list):
+            if not config:
+                return "Sem agendamento definido"
+            parts = [f"{item.get('hour', 0):02d}:{item.get('minute', 0):02d}" for item in config if isinstance(item, dict)]
+            return "Execução diária às " + ", ".join(parts) if parts else "Sem agendamento definido"
         if not isinstance(config, dict):
             return "Sem agendamento definido"
         st = self.schedule_type

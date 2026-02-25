@@ -27,9 +27,13 @@ A escolha é salva em `orca_config.json` na raiz do projeto e não é perguntada
 
 ## Versão
 
-A versão é obtida com `git describe --tags --always` na pasta do projeto. Ela aparece no tooltip do ícone da bandeja, no menu **Sobre** e no rodapé da interface web do Orca.
+A versão é obtida do arquivo `VERSION` na pasta do projeto (atualizado pelo hook com versão semântica) ou, na falta dele, com `git describe --tags --always`. Ela aparece no tooltip do ícone da bandeja, no menu **Sobre** e no rodapé da interface web do Orca.
 
-## Uso sem construir o .exe (desenvolvimento)
+## Uso sem construir o .exe (sem instalação)
+
+**Windows:** na raiz do projeto, **`IniciarOrca.bat`** sobe o Django com `manage.py runserver` (usa .venv se existir, senão Python do PATH; `DATABASE=sqlite`). Dois cliques e acesse http://127.0.0.1:8000. Não inicia o launcher com ícone na bandeja — para isso, rode manualmente:
+
+**Rodar o launcher (bandeja, Docker/Sem Docker) manualmente:**
 
 1. Instale as dependências do launcher:
    ```bash

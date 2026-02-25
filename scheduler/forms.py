@@ -44,7 +44,7 @@ class TaskForm(forms.ModelForm):
             'timeout': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'schedule_config': forms.Textarea(attrs={
                 'class': 'form-control', 'rows': 6,
-                'placeholder': '{} ou ex: {"minutes": 30}',
+                'placeholder': '{} ou {"hour": 8, "minute": 0} ou [{"hour": 8, "minute": 0}, {"hour": 10, "minute": 30}, {"hour": 14, "minute": 18}]',
             }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
@@ -69,7 +69,7 @@ class TaskForm(forms.ModelForm):
                 self.fields['depends_on'].queryset = Task.objects.filter(pipeline_id=pipeline_id)
     
     def clean_schedule_config(self):
-        """Valida que schedule_config é JSON válido. Aceita vazio como {}."""
+        """Valida que schedule_config é JSON válido. Aceita {}, lista de {hour, minute} ou objeto único."""
         config = self.cleaned_data.get('schedule_config')
         if config is None:
             return {}
@@ -78,11 +78,30 @@ class TaskForm(forms.ModelForm):
             if not raw:
                 return {}
             try:
-                return json.loads(raw)
+                config = json.loads(raw)
             except json.JSONDecodeError:
                 raise forms.ValidationError(
-                    "Configuração de agendamento deve ser JSON válido. Ex: {} ou {\"minutes\": 5}"
+                    "Configuração de agendamento deve ser JSON válido. Ex: {} ou [{\"hour\": 8, \"minute\": 0}, ...]"
                 )
+        if isinstance(config, list):
+            if not config:
+                return {}
+            for i, item in enumerate(config):
+                if not isinstance(item, dict):
+                    raise forms.ValidationError(
+                        f"Item {i + 1} da lista deve ser um objeto com hour e minute."
+                    )
+                try:
+                    h, m = int(item.get('hour', 0)), int(item.get('minute', 0))
+                except (TypeError, ValueError):
+                    raise forms.ValidationError(
+                        f"Item {i + 1}: hour e minute devem ser números."
+                    )
+                if not (0 <= h <= 23 and 0 <= m <= 59):
+                    raise forms.ValidationError(
+                        f"Item {i + 1}: hour deve ser 0-23 e minute 0-59."
+                    )
+            return config
         return config if isinstance(config, dict) else {}
 
     def clean_executor_config(self):
