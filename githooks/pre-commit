@@ -1,6 +1,6 @@
 #!/bin/sh
-# Atualiza o arquivo VERSION na raiz do projeto com versão semântica (ex.: v1.0.2).
-# Se há commits após a última tag (ex.: v1.0.1), o patch é incrementado (v1.0.1-1-gHASH -> v1.0.2).
+# Atualiza o arquivo VERSION na raiz do projeto com versão semântica (ex.: v1.0.3).
+# Se há commits após a última tag (ex.: v1.0.1-2-gHASH), o patch é incrementado -> v1.0.3.
 # Instale: cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 
 ROOT=$(git rev-parse --show-toplevel)
@@ -17,14 +17,15 @@ if [ -z "$DESCRIBE" ]; then
     exit 0
 fi
 
-# Formato: TAG-N-gHASH (ex.: v1.0.1-1-g9d22b19)
-if echo "$DESCRIBE" | grep -qE '^.+-[0-9]+-g[0-9a-f]+$'; then
-    TAG=$(echo "$DESCRIBE" | sed -E 's/^(.+)-[0-9]+-g[0-9a-f]+$/\1/')
-    COMMITS=$(echo "$DESCRIBE" | sed -E 's/^.+-([0-9]+)-g[0-9a-f]+$/\1/')
-else
-    write_version "0.0.0"
-    exit 0
-fi
+# Formato: TAG-N-gHASH (ex.: v1.0.1-2-g42256b6). Sed portável (sem -E) para Linux e macOS.
+# Extrai TAG (tudo antes do último -N-g) e COMMITS (o número antes de -g)
+TAG=$(echo "$DESCRIBE" | sed 's/-[0-9][0-9]*-g[0-9a-f][0-9a-f]*$//')
+COMMITS=$(echo "$DESCRIBE" | sed 's/^.*-\([0-9][0-9]*\)-g[0-9a-f][0-9a-f]*$/\1/')
+
+# Se a extração falhou (COMMITS não é numérico), usa 0.0.0
+case "$COMMITS" in
+    ''|*[!0-9]*) write_version "0.0.0"; exit 0 ;;
+esac
 
 # Se estamos exatamente na tag (0 commits), usa a tag
 if [ "$COMMITS" = "0" ]; then
@@ -32,18 +33,20 @@ if [ "$COMMITS" = "0" ]; then
     exit 0
 fi
 
-# Se a tag é semver (vX.Y.Z), incrementa o patch com o número de commits
-if echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-    VER=${TAG#v}
-    MAJOR=${VER%%.*}
-    REST=${VER#*.}
-    MINOR=${REST%%.*}
-    PATCH=${REST#*.}
-    [ -z "$PATCH" ] && PATCH=0
-    PATCH=$((PATCH + COMMITS))
-    write_version "v${MAJOR}.${MINOR}.${PATCH}"
-else
-    # Tag não é semver: grava o describe original
-    write_version "$DESCRIBE"
-fi
+# Se a tag parece semver (vX.Y.Z com números), incrementa o patch
+case "$TAG" in
+    v[0-9]*.[0-9]*.[0-9]*)
+        VER=${TAG#v}
+        MAJOR=${VER%%.*}
+        REST=${VER#*.}
+        MINOR=${REST%%.*}
+        PATCH=${REST#*.}
+        [ -z "$PATCH" ] && PATCH=0
+        PATCH=$((PATCH + COMMITS))
+        write_version "v${MAJOR}.${MINOR}.${PATCH}"
+        ;;
+    *)
+        write_version "$DESCRIBE"
+        ;;
+esac
 exit 0
