@@ -112,8 +112,12 @@ class Task(models.Model):
         return f"{self.pipeline.name} - {self.name}"
     
     def get_dependencies(self):
-        """Retorna IDs das tarefas das quais depende"""
-        return list(self.depends_on.values_list('id', flat=True))
+        """Retorna IDs das tarefas das quais depende (apenas do mesmo pipeline)."""
+        return list(self.depends_on.filter(pipeline=self.pipeline).values_list('id', flat=True))
+
+    def get_dependencies_same_pipeline(self):
+        """Retorna as tarefas das quais esta depende, apenas do mesmo pipeline (para exibição)."""
+        return self.depends_on.filter(pipeline=self.pipeline)
 
     def get_schedule_display(self):
         """

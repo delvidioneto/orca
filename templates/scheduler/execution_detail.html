@@ -26,7 +26,7 @@
                     <tr>
                         <th>Status:</th>
                         <td>
-                            <span class="badge-status status-{{ execution.status }}">
+                            <span class="badge-status status-{{ execution.status }}" id="exec-detail-status">
                                 {{ execution.get_status_display }}
                             </span>
                         </td>
@@ -35,18 +35,14 @@
                         <th>Iniciado em:</th>
                         <td>{{ execution.created_at|date:"d/m/Y H:i:s" }}</td>
                     </tr>
-                    {% if execution.finished_at %}
-                    <tr>
+                    <tr id="exec-row-finished" style="{% if not execution.finished_at %}display:none{% endif %}">
                         <th>Finalizado em:</th>
-                        <td>{{ execution.finished_at|date:"d/m/Y H:i:s" }}</td>
+                        <td id="exec-detail-finished">{% if execution.finished_at %}{{ execution.finished_at|date:"d/m/Y H:i:s" }}{% endif %}</td>
                     </tr>
-                    {% endif %}
-                    {% if execution.duration %}
-                    <tr>
+                    <tr id="exec-row-duration" style="{% if not execution.duration %}display:none{% endif %}">
                         <th>Duração:</th>
-                        <td>{{ execution.duration|floatformat:2 }} segundos</td>
+                        <td id="exec-detail-duration">{% if execution.duration %}{{ execution.duration|floatformat:2 }} segundos{% endif %}</td>
                     </tr>
-                    {% endif %}
                     <tr>
                         <th>Código de Retorno:</th>
                         <td>
@@ -104,5 +100,57 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function() {
+    var executionId = {{ execution.id }};
+    var url = '{% url "scheduler:execution_detail_status_api" execution.id %}';
+    var interval = 3000;
+    var pollCount = 0;
+    var maxPollWhenFinished = 2;
+
+    function updatePage(data) {
+        var statusEl = document.getElementById('exec-detail-status');
+        if (statusEl) {
+            statusEl.textContent = data.status_display;
+            statusEl.className = 'badge-status status-' + data.status;
+        }
+        if (data.finished_at) {
+            var rowFinished = document.getElementById('exec-row-finished');
+            var cellFinished = document.getElementById('exec-detail-finished');
+            if (rowFinished && cellFinished) {
+                rowFinished.style.display = '';
+                cellFinished.textContent = data.finished_at;
+            }
+        }
+        if (data.duration != null) {
+            var rowDuration = document.getElementById('exec-row-duration');
+            var cellDuration = document.getElementById('exec-detail-duration');
+            if (rowDuration && cellDuration) {
+                rowDuration.style.display = '';
+                cellDuration.textContent = data.duration + ' segundos';
+            }
+        }
+    }
+
+    function poll() {
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                updatePage(data);
+                if (data.status !== 'running') {
+                    pollCount++;
+                    if (pollCount >= maxPollWhenFinished) clearInterval(tid);
+                }
+            })
+            .catch(function() {});
+    }
+
+    var tid = setInterval(poll, interval);
+})();
+</script>
 {% endblock %}
 

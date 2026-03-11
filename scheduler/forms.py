@@ -58,15 +58,21 @@ class TaskForm(forms.ModelForm):
             self.initial['executor_config'] = json.dumps(
                 self.initial['executor_config'], indent=2, ensure_ascii=False
             )
-        # Limita depends_on para tarefas do mesmo pipeline
+        # Limita depends_on apenas a tarefas do mesmo pipeline (dependências de outro pipeline não aparecem)
+        pipeline_id = None
         if self.instance and self.instance.pk:
+            pipeline_id = self.instance.pipeline_id
             self.fields['depends_on'].queryset = Task.objects.filter(
                 pipeline=self.instance.pipeline
             ).exclude(id=self.instance.pk)
-        elif 'pipeline' in self.data:
-            pipeline_id = self.data.get('pipeline')
+        else:
+            pipeline_id = self.data.get('pipeline') or (self.initial.get('pipeline') or None)
+            if hasattr(pipeline_id, 'pk'):
+                pipeline_id = pipeline_id.pk
             if pipeline_id:
                 self.fields['depends_on'].queryset = Task.objects.filter(pipeline_id=pipeline_id)
+            else:
+                self.fields['depends_on'].queryset = Task.objects.none()
     
     def clean_schedule_config(self):
         """Valida que schedule_config é JSON válido. Aceita {}, lista de {hour, minute} ou objeto único."""
@@ -132,5 +138,11 @@ class TaskForm(forms.ModelForm):
         script_path = cleaned.get('script_path') or ''
         if executor_type == ExecutorType.SCRIPT and not (script_path and script_path.strip()):
             self.add_error('script_path', 'Caminho do script é obrigatório para executor tipo Script.')
+        # Garante que dependências são apenas do mesmo pipeline (ignora qualquer outra enviada)
+        pipeline = cleaned.get('pipeline')
+        depends_on = cleaned.get('depends_on')
+        if pipeline and depends_on is not None:
+            valid = list(depends_on.filter(pipeline=pipeline))
+            cleaned['depends_on'] = valid
         return cleaned
 

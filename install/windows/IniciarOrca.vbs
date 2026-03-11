@@ -1,5 +1,5 @@
 ' Inicia o Orca em segundo plano (sem janela CMD visível).
-' Coloque junto de IniciarOrca.bat na raiz do projeto.
+' Deve ficar na mesma pasta que IniciarOrca.bat (install/windows).
 ' Para parar: use PararOrca.bat ou encerre python.exe no Gerenciador de Tarefas.
 
 Set fso = CreateObject("Scripting.FileSystemObject")

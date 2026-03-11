@@ -59,16 +59,16 @@
                         </thead>
                         <tbody>
                             {% for execution in recent_executions %}
-                            <tr>
+                            <tr data-execution-id="{{ execution.id }}">
                                 <td>{{ execution.task.name }}</td>
                                 <td>{{ execution.pipeline.name }}</td>
-                                <td>
+                                <td class="cell-status">
                                     <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
                                         {{ execution.get_status_display }}
                                     </a>
                                 </td>
-                                <td>{{ execution.created_at|date:"d/m/Y H:i" }}</td>
-                                <td>
+                                <td class="cell-created">{{ execution.created_at|date:"d/m/Y H:i" }}</td>
+                                <td class="cell-duration">
                                     {% if execution.duration %}
                                         {{ execution.duration|floatformat:2 }}s
                                     {% else %}
@@ -176,5 +176,47 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function() {
+    var url = '{% url "scheduler:dashboard_executions_api" %}';
+    var interval = 4000;
+    var tbody = document.querySelector('.card .table-responsive tbody');
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll('tr[data-execution-id]');
+    if (rows.length === 0) return;
+
+    function updateRow(row, data) {
+        var statusCell = row.querySelector('.cell-status a.badge-status');
+        if (statusCell) {
+            statusCell.textContent = data.status_display;
+            statusCell.className = 'badge-status status-' + data.status + ' text-decoration-none';
+        }
+        var durationCell = row.querySelector('.cell-duration');
+        if (durationCell) {
+            durationCell.textContent = data.duration != null ? data.duration + 's' : '-';
+        }
+    }
+
+    function poll() {
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var byId = {};
+                (data.executions || []).forEach(function(e) { byId[e.id] = e; });
+                rows.forEach(function(row) {
+                    var id = parseInt(row.getAttribute('data-execution-id'), 10);
+                    if (byId[id]) updateRow(row, byId[id]);
+                });
+            })
+            .catch(function() {});
+    }
+
+    setInterval(poll, interval);
+})();
+</script>
 {% endblock %}
 

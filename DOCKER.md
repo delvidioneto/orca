@@ -1,6 +1,6 @@
 # 🐳 Guia Docker - Orca
 
-Este guia explica como executar o Orca usando Docker e Docker Compose.
+Este guia explica como executar o Orca usando Docker e Docker Compose. Os arquivos Docker ficam em **`install/docker/`**. Execute os comandos **na raiz do projeto**.
 
 ## 📋 Pré-requisitos
 
@@ -10,7 +10,7 @@ Este guia explica como executar o Orca usando Docker e Docker Compose.
 Verifique a instalação:
 ```bash
 docker --version
-docker-compose --version
+docker compose --version
 ```
 
 ## 🚀 Início Rápido
@@ -19,13 +19,13 @@ docker-compose --version
 
 ```bash
 # Build da imagem
-docker-compose -f docker-compose.dev.yml build
+docker compose -f install/docker/docker-compose.dev.yml build
 
 # Inicia os containers
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml up -d
 
 # Ver logs
-docker-compose -f docker-compose.dev.yml logs -f
+docker compose -f install/docker/docker-compose.dev.yml logs -f
 ```
 
 ### 2. Acessar a Aplicação
@@ -42,10 +42,10 @@ Abra seu navegador em: `http://localhost:8000`
 
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml down
+docker compose -f install/docker/docker-compose.dev.yml down
 
 # Produção
-docker-compose down
+docker compose -f install/docker/docker-compose.yml down
 ```
 
 ## 📁 Estrutura de Volumes
@@ -62,7 +62,7 @@ O Docker Compose monta os seguintes volumes:
 
 ### Variáveis de Ambiente
 
-**Desenvolvimento** (`docker-compose.dev.yml`):
+**Desenvolvimento** (`install/docker/docker-compose.dev.yml`):
 ```yaml
 environment:
   - DEBUG=True                    # True/False
@@ -71,7 +71,7 @@ environment:
   - TIME_ZONE=America/Sao_Paulo    # Timezone
 ```
 
-**Produção** (`docker-compose.yml`):
+**Produção** (`install/docker/docker-compose.yml`):
 ```yaml
 environment:
   - DEBUG=False                    # False em produção
@@ -89,8 +89,8 @@ environment:
 export SECRET_KEY="sua-chave-secreta"
 export DB_PASSWORD="senha-segura"
 
-# Inicie (usa docker-compose.yml por padrão)
-docker-compose up -d
+# Inicie (produção)
+docker compose -f install/docker/docker-compose.yml up -d
 ```
 
 ## 🛠️ Comandos Úteis
@@ -98,76 +98,76 @@ docker-compose up -d
 ### Ver logs
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml logs -f web
+docker compose -f install/docker/docker-compose.dev.yml logs -f web
 
 # Produção
-docker-compose logs -f web
+docker compose -f install/docker/docker-compose.yml logs -f web
 ```
 
 ### Executar comandos Django
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
-docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py createsuperuser
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py migrate
 
 # Produção
-docker-compose exec web python manage.py createsuperuser
-docker-compose exec web python manage.py migrate
-docker-compose exec web python manage.py shell
-docker-compose exec web python manage.py start_scheduler
+docker compose -f install/docker/docker-compose.yml exec web python manage.py createsuperuser
+docker compose -f install/docker/docker-compose.yml exec web python manage.py migrate
+docker compose -f install/docker/docker-compose.yml exec web python manage.py shell
+docker compose -f install/docker/docker-compose.yml exec web python manage.py start_scheduler
 ```
 
 ### Acessar shell do container
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml exec web bash
+docker compose -f install/docker/docker-compose.dev.yml exec web bash
 
 # Produção
-docker-compose exec web bash
+docker compose -f install/docker/docker-compose.yml exec web bash
 ```
 
 ### Rebuild após mudanças
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml build --no-cache
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml build --no-cache
+docker compose -f install/docker/docker-compose.dev.yml up -d
 
 # Produção
-docker-compose build --no-cache
-docker-compose up -d
+docker compose -f install/docker/docker-compose.yml build --no-cache
+docker compose -f install/docker/docker-compose.yml up -d
 ```
 
 ### Limpar tudo (cuidado!)
 ```bash
 # Desenvolvimento
-docker-compose -f docker-compose.dev.yml down
-docker-compose -f docker-compose.dev.yml down -v  # Remove volumes também
+docker compose -f install/docker/docker-compose.dev.yml down
+docker compose -f install/docker/docker-compose.dev.yml down -v  # Remove volumes também
 
 # Produção
-docker-compose down
-docker-compose down -v  # Remove volumes também (apaga dados!)
-docker-compose down --rmi all  # Remove imagens
+docker compose -f install/docker/docker-compose.yml down
+docker compose -f install/docker/docker-compose.yml down -v  # Remove volumes também (apaga dados!)
+docker compose -f install/docker/docker-compose.yml down --rmi all  # Remove imagens
 ```
 
 ## 📦 Produção
 
-### Usando docker-compose.yml (padrão para produção)
+### Usando docker-compose.yml (produção)
 
 ```bash
 # 1. Configure variáveis de ambiente
 export SECRET_KEY="sua-chave-secreta-super-segura"
 export DB_PASSWORD="senha-segura-do-banco"
 
-# 2. Inicie com configuração de produção (usa docker-compose.yml por padrão)
-docker-compose up -d
+# 2. Inicie com configuração de produção
+docker compose -f install/docker/docker-compose.yml up -d
 
 # 3. Crie superusuário manualmente
-docker-compose exec web python manage.py createsuperuser
+docker compose -f install/docker/docker-compose.yml exec web python manage.py createsuperuser
 ```
 
 ### Usando Gunicorn
 
-O `docker-compose.yml` (produção) já usa Gunicorn com 4 workers. Para ajustar:
+O `install/docker/docker-compose.yml` (produção) já usa Gunicorn com 4 workers. Para ajustar:
 
 ```yaml
 command: gunicorn orca_project.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
@@ -205,8 +205,8 @@ server {
 ### Container não inicia
 ```bash
 # Ver logs detalhados
-docker-compose -f docker-compose.dev.yml logs web  # Dev
-docker-compose logs web  # Prod
+docker compose -f install/docker/docker-compose.dev.yml logs web  # Dev
+docker compose -f install/docker/docker-compose.yml logs web  # Prod
 
 # Verificar se a porta está em uso
 lsof -i :8000
@@ -221,28 +221,28 @@ sudo chown -R $USER:$USER ./logs ./media ./staticfiles
 ### Banco de dados não conecta
 ```bash
 # Verificar se PostgreSQL está rodando (produção)
-docker-compose ps db
+docker compose -f install/docker/docker-compose.yml ps db
 
 # Ver logs do PostgreSQL
-docker-compose logs db
+docker compose -f install/docker/docker-compose.yml logs db
 ```
 
 ### Scripts não executam
 - Verifique se os scripts estão em `./scripts/`
 - Verifique permissões: `chmod +x scripts/*.py`
 - Verifique logs: 
-  - Dev: `docker-compose -f docker-compose.dev.yml logs web`
-  - Prod: `docker-compose logs web`
+  - Dev: `docker compose -f install/docker/docker-compose.dev.yml logs web`
+  - Prod: `docker compose -f install/docker/docker-compose.yml logs web`
 
 ### Scheduler não inicia
 ```bash
 # Verificar logs
-docker-compose -f docker-compose.dev.yml logs web | grep scheduler  # Dev
-docker-compose logs web | grep scheduler  # Prod
+docker compose -f install/docker/docker-compose.dev.yml logs web | grep scheduler  # Dev
+docker compose -f install/docker/docker-compose.yml logs web | grep scheduler  # Prod
 
 # Reiniciar container
-docker-compose -f docker-compose.dev.yml restart web  # Dev
-docker-compose restart web  # Prod
+docker compose -f install/docker/docker-compose.dev.yml restart web  # Dev
+docker compose -f install/docker/docker-compose.yml restart web  # Prod
 ```
 
 ## 📝 Notas Importantes
@@ -275,8 +275,8 @@ export DB_PASSWORD="senha-segura"
 
 ### 3. Build e start
 ```bash
-docker-compose build
-docker-compose up -d
+docker compose -f install/docker/docker-compose.yml build
+docker compose -f install/docker/docker-compose.yml up -d
 ```
 
 ### 4. Configure Nginx (opcional)

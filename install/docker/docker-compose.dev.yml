@@ -1,16 +1,22 @@
+# Orca – desenvolvimento (SQLite).
+# Execute desta pasta: docker compose -f docker-compose.dev.yml up
+# Ou da raiz do projeto: docker compose -f install/docker/docker-compose.dev.yml up
+
 services:
   web:
-    build: .
+    build:
+      context: ../..
+      dockerfile: Dockerfile
     container_name: orca_web_dev
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
-      - ./scripts:/app/scripts
-      - ./logs:/app/logs
-      - ./media:/app/media
-      - ./data:/app/data
-      - ./staticfiles:/app/staticfiles
+      - ../..:/app
+      - ../../scripts:/app/scripts
+      - ../../logs:/app/logs
+      - ../../media:/app/media
+      - ../../data:/app/data
+      - ../../staticfiles:/app/staticfiles
     environment:
       - DEBUG=True
       - CREATE_SUPERUSER=true
@@ -26,10 +32,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # Serviço db presente para evitar aviso de "orphan" (orca_db) quando
-  # já existir container do compose de produção. Em dev o app usa SQLite;
-  # use: docker compose -f docker-compose.dev.yml --profile postgres up
-  # para subir também o Postgres.
   db:
     image: postgres:15-alpine
     container_name: orca_db

@@ -29,7 +29,7 @@ A forma mais simples é usar Docker. O Orca sobe com banco (PostgreSQL em produ�
 **Desenvolvimento:**
 
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml up -d
 # Acesse http://localhost:8000 — login: admin / admin123
 ```
 
@@ -39,7 +39,7 @@ docker-compose -f docker-compose.dev.yml up -d
 export SECRET_KEY="sua-chave-secreta"
 export DB_PASSWORD="senha-segura"
 # Opcional: export ORCA_VERSION=1.0.2
-docker-compose up -d
+docker compose -f install/docker/docker-compose.yml up -d
 ```
 
 Detalhes: [DOCKER.md](DOCKER.md).
@@ -93,7 +93,7 @@ Na raiz do projeto há scripts para Windows:
 | **AdicionarInicioWindows.bat** | Adiciona início automático do Orca ao ligar o PC (uma execução). |
 | **RemoverInicioWindows.bat** | Remove o início automático. |
 
-Requisito: Python no PATH (`python` ou `py`). Para rodar sem ver a janela, use **IniciarOrca.vbs**.
+Requisito: Python no PATH (`python` ou `py`). Para rodar sem ver a janela, use **IniciarOrca.vbs**. Veja `install/windows/README.md`.
 
 **Launcher (bandeja do sistema):** para ícone na bandeja, iniciar com o Windows e opção Docker ou Sem Docker, use o launcher em [launcher/README.md](launcher/README.md).
 
@@ -186,10 +186,12 @@ orca/
 ├── launcher/              # Launcher Windows (bandeja)
 ├── manage.py
 ├── requirements.txt
-├── VERSION                # Versão exibida (semântica)
-├── IniciarOrca.bat        # Iniciar Orca no Windows (sem Docker)
-├── IniciarOrca.vbs        # Iniciar em segundo plano
-├── PararOrca.bat
+├── install/
+│   ├── docker/            # Dockerfile, docker-compose, entrypoint
+│   ├── linux/             # README e run.sh para Linux
+│   ├── mac/               # README e run.sh para macOS
+│   ├── version/           # bump_version.py e VERSION (versão do app)
+│   └── windows/          # .bat e .vbs para Windows (IniciarOrca, PararOrca, etc.)
 └── README.md
 ```
 
@@ -199,13 +201,11 @@ orca/
 
 ### Versão (rodapé)
 
-Ordem de leitura: variável **`ORCA_VERSION`** → arquivo **`VERSION`** → Git → `0.0.0`. Para gerar `VERSION` automaticamente a cada commit (ex.: `v1.0.2`):
+Ordem de leitura: variável **`ORCA_VERSION`** → arquivo **`install/version/VERSION`** → `0.0.0`. Para atualizar a versão use apenas:
 
 ```bash
-cp githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+python install/version/bump_version.py major   # ou minor ou patch
 ```
-
-O hook incrementa o patch quando há commits após a última tag (ex.: tag `v1.0.1` + 1 commit → `v1.0.2`).
 
 ### Scheduler em processo separado
 

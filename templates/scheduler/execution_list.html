@@ -2,17 +2,63 @@
 
 {% block title %}Execuções - Orca{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+th.sortable a { cursor: pointer; }
+th.sortable a:hover { text-decoration: underline !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
         <h1><i class="bi bi-clock-history"></i> Execuções</h1>
         <p class="text-muted mb-0">Histórico de execuções de tarefas</p>
     </div>
-    <div class="d-flex gap-1 flex-wrap">
-        <a href="{% url 'scheduler:execution_list' %}" class="btn btn-sm {% if not request.GET.status %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
-        <a href="{% url 'scheduler:execution_list' %}?status=running" class="btn btn-sm {% if request.GET.status == 'running' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
-            <i class="bi bi-arrow-repeat"></i> Em execução / Travadas
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        <a href="{{ request.path }}?{{ query_base }}{% if is_paginated and page_obj.number > 1 %}&page={{ page_obj.number }}{% endif %}" class="btn btn-outline-secondary btn-sm" title="Recarregar página para ver atualizações">
+            <i class="bi bi-arrow-clockwise"></i> Atualizar
         </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i> Exportar relatório
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                <li><a class="dropdown-item" href="{% url 'scheduler:execution_export' %}?{{ query_base }}&format=csv" target="_blank" rel="noopener"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a></li>
+                <li><a class="dropdown-item" href="{% url 'scheduler:execution_export' %}?{{ query_base }}&format=json" target="_blank" rel="noopener"><i class="bi bi-file-earmark-code"></i> JSON</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" action="{% url 'scheduler:execution_list' %}" class="row g-2 align-items-end flex-wrap">
+            <input type="hidden" name="order" value="{{ order_param }}">
+            <div class="col-auto">
+                <label for="filter_status" class="form-label mb-0 small">Status</label>
+                <select name="status" id="filter_status" class="form-select form-select-sm" style="min-width: 140px;">
+                    <option value="">Todos</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label for="filter_task" class="form-label mb-0 small">Tarefa</label>
+                <select name="task" id="filter_task" class="form-select form-select-sm" style="min-width: 200px;">
+                    <option value="">Todas</option>
+                    {% for t in tasks_for_filter %}
+                    <option value="{{ t.id }}" {% if filter_task == t.id|stringformat:"d" %}selected{% endif %}>{{ t.pipeline.name }} – {{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a href="{% url 'scheduler:execution_list' %}?order=-created_at" class="btn btn-outline-secondary btn-sm">Limpar</a>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -22,44 +68,90 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Tarefa</th>
-                        <th>Pipeline</th>
-                        <th>Status</th>
-                        <th>Iniciado</th>
-                        <th>Finalizado</th>
-                        <th>Duração</th>
+                        <th class="sortable">
+                            {% if order_param == 'task' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-task" class="text-decoration-none">Tarefa <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-task' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=task" class="text-decoration-none">Tarefa <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-task" class="text-decoration-none text-muted">Tarefa <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
+                        <th class="sortable">
+                            {% if order_param == 'pipeline' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-pipeline" class="text-decoration-none">Pipeline <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-pipeline' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=pipeline" class="text-decoration-none">Pipeline <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-pipeline" class="text-decoration-none text-muted">Pipeline <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
+                        <th class="sortable">
+                            {% if order_param == 'status' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-status" class="text-decoration-none">Status <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-status' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=status" class="text-decoration-none">Status <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-status" class="text-decoration-none text-muted">Status <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
+                        <th class="sortable">
+                            {% if order_param == 'created_at' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-created_at" class="text-decoration-none">Iniciado <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-created_at' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=created_at" class="text-decoration-none">Iniciado <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-created_at" class="text-decoration-none text-muted">Iniciado <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
+                        <th class="sortable">
+                            {% if order_param == 'finished_at' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-finished_at" class="text-decoration-none">Finalizado <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-finished_at' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=finished_at" class="text-decoration-none">Finalizado <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-finished_at" class="text-decoration-none text-muted">Finalizado <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
+                        <th class="sortable">
+                            {% if order_param == 'duration' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-duration" class="text-decoration-none">Duração <i class="bi bi-arrow-up"></i></a>
+                            {% elif order_param == '-duration' %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=duration" class="text-decoration-none">Duração <i class="bi bi-arrow-down"></i></a>
+                            {% else %}
+                            <a href="?{% if query_base_no_order %}{{ query_base_no_order }}&{% endif %}order=-duration" class="text-decoration-none text-muted">Duração <i class="bi bi-arrow-down"></i></a>
+                            {% endif %}
+                        </th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for execution in executions %}
-                    <tr class="{% if execution.status == 'running' %}table-warning{% endif %}">
+                    <tr class="{% if execution.status == 'running' %}table-warning{% endif %}" data-execution-id="{{ execution.id }}">
                         <td>{{ execution.task.name }}</td>
                         <td>{{ execution.pipeline.name }}</td>
-                        <td>
+                        <td class="cell-status">
                             <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
                                 {{ execution.get_status_display }}
                             </a>
-                            {% if execution.status == 'running' and execution.id in stale_execution_ids %}
-                                <span class="badge bg-danger ms-1" title="Em execução há mais de 30 min">Travada</span>
-                            {% endif %}
+                            <span class="stale-badge badge bg-danger ms-1" title="Em execução há mais de 30 min" style="{% if not execution.status == 'running' or execution.id not in stale_execution_ids %}display:none{% endif %}">Travada</span>
                         </td>
-                        <td>{{ execution.created_at|date:"d/m/Y H:i:s" }}</td>
-                        <td>
+                        <td class="cell-created">{{ execution.created_at|date:"d/m/Y H:i:s" }}</td>
+                        <td class="cell-finished">
                             {% if execution.finished_at %}
                                 {{ execution.finished_at|date:"d/m/Y H:i:s" }}
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="cell-duration">
                             {% if execution.duration %}
                                 {{ execution.duration|floatformat:2 }}s
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="cell-actions">
                             {% if execution.status == 'running' %}
                             <form action="{% url 'scheduler:execution_cancel' execution.id %}" method="post" class="d-inline" title="Cancelar execução">
                                 {% csrf_token %}
@@ -84,10 +176,10 @@
         
         {% if is_paginated %}
         <nav aria-label="Paginação">
-            <ul class="pagination justify-content-center">
+            <ul class="pagination justify-content-center flex-wrap">
                 {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_base %}&{{ query_base }}{% endif %}">Anterior</a>
                 </li>
                 {% endif %}
                 
@@ -97,7 +189,7 @@
                 
                 {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_base %}&{{ query_base }}{% endif %}">Próxima</a>
                 </li>
                 {% endif %}
             </ul>
@@ -107,3 +199,12 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+(function() {
+    var refreshUrl = "{{ request.path }}?{{ query_base }}{% if is_paginated and page_obj.number > 1 %}&page={{ page_obj.number }}{% endif %}";
+    var intervalMs = 30000;
+    var tid = setInterval(function() { location.href = refreshUrl; }, intervalMs);
+})();
+</script>
+{% endblock %}

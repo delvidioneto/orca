@@ -30,7 +30,7 @@ else:
     APP_DIR = Path(__file__).resolve().parent.parent
 
 ORCA_URL = "http://127.0.0.1:8000"
-COMPOSE_FILE = "docker-compose.yml"
+COMPOSE_FILE = "install/docker/docker-compose.yml"
 CONFIG_FILE_NAME = "orca_config.json"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_NAME = "Orca"
@@ -319,31 +319,18 @@ def set_startup(enabled: bool):
         pass
 
 
-# --- Versão (VERSION / Git) ---
+# --- Versão (apenas install/version/VERSION, atualizado por bump_version.py) ---
 
 def get_local_version(project_root: Path):
-    """Versão local: arquivo VERSION (semântico) ou git describe."""
-    version_file = project_root / "VERSION"
-    if version_file.is_file():
+    """Versão local: arquivo install/version/VERSION (atualizado só por install/version/bump_version.py)."""
+    path = project_root / "install" / "version" / "VERSION"
+    if path.is_file():
         try:
-            value = version_file.read_text(encoding="utf-8").strip()
+            value = path.read_text(encoding="utf-8").strip()
             if value:
                 return value
         except Exception:
             pass
-    try:
-        r = subprocess.run(
-            ["git", "describe", "--tags", "--always"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            **_subprocess_flags(),
-        )
-        if r.returncode == 0 and r.stdout:
-            return r.stdout.strip()
-    except Exception:
-        pass
     return "0.0.0"
 
 

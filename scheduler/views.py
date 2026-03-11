@@ -4,15 +4,17 @@ from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.utils.formats import date_format
 from .models import Pipeline, Task, TaskExecution, TaskStatus
 from .forms import PipelineForm, TaskForm
 from .scheduler_manager import SchedulerManager
 from .dag_manager import DAGManager
 from .utils import infer_schedule_type
 import json
+import csv
 import threading
 
 # Views de Pipeline
@@ -125,6 +127,13 @@ class TaskCreateView(CreateView):
     def get_success_url(self):
         return reverse_lazy('scheduler:pipeline_detail', kwargs={'pk': self.object.pipeline.id})
     
+    def get_initial(self):
+        initial = super().get_initial()
+        pipeline_id = self.request.GET.get('pipeline')
+        if pipeline_id:
+            initial['pipeline'] = pipeline_id
+        return initial
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['create_pipeline_id'] = self.request.GET.get('pipeline')
@@ -182,6 +191,48 @@ class TaskDeleteView(DeleteView):
 # Só consideramos pelo started_at (e nulo); 15 min evita matar tarefas que demoram um pouco
 STALE_EXECUTION_SECONDS = 900  # 15 minutos
 
+# Ordenação permitida na lista de execuções (campo ou -campo)
+EXECUTION_ORDER_FIELDS = {
+    'task': 'task__name',
+    '-task': '-task__name',
+    'pipeline': 'pipeline__name',
+    '-pipeline': '-pipeline__name',
+    'status': 'status',
+    '-status': '-status',
+    'created_at': 'created_at',
+    '-created_at': '-created_at',
+    'finished_at': 'finished_at',
+    '-finished_at': '-finished_at',
+    'duration': 'duration',
+    '-duration': '-duration',
+}
+EXECUTION_ORDER_DEFAULT = '-created_at'
+
+
+def _execution_list_queryset(request, apply_stale_release=True):
+    """Retorna o queryset de execuções com filtros e ordenação (status, task, pipeline, order)."""
+    if apply_stale_release:
+        release_all_stale_executions()
+    qs = TaskExecution.objects.select_related('task', 'pipeline').all()
+    status = request.GET.get('status', '').strip()
+    if status:
+        qs = qs.filter(status=status)
+    pipeline_id = request.GET.get('pipeline', '').strip()
+    if pipeline_id:
+        try:
+            qs = qs.filter(pipeline_id=int(pipeline_id))
+        except ValueError:
+            pass
+    task_id = request.GET.get('task', '').strip()
+    if task_id:
+        try:
+            qs = qs.filter(task_id=int(task_id))
+        except ValueError:
+            pass
+    order_param = request.GET.get('order', '').strip() or EXECUTION_ORDER_DEFAULT
+    order_field = EXECUTION_ORDER_FIELDS.get(order_param, EXECUTION_ORDER_DEFAULT)
+    return qs.order_by(order_field)
+
 
 def release_all_stale_executions():
     """
@@ -214,34 +265,17 @@ class ExecutionListView(ListView):
     paginate_by = 50
     
     def get_queryset(self):
-        # Libera execuções travadas ao abrir a página (para desbloquear tarefas)
         released = release_all_stale_executions()
         if released:
             messages.success(
                 self.request,
                 f'{released} execução(ões) travada(s) foram marcadas como falha. Você já pode executar as tarefas novamente.',
             )
-        queryset = TaskExecution.objects.select_related('task', 'pipeline').all()
-        
-        # Filtros
-        status = self.request.GET.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        pipeline_id = self.request.GET.get('pipeline')
-        if pipeline_id:
-            queryset = queryset.filter(pipeline_id=pipeline_id)
-        
-        task_id = self.request.GET.get('task')
-        if task_id:
-            queryset = queryset.filter(task_id=task_id)
-        
-        return queryset.order_by('-created_at')
+        return _execution_list_queryset(self.request, apply_stale_release=False)
     
     def get_context_data(self, **kwargs):
         from datetime import timedelta
         context = super().get_context_data(**kwargs)
-        # IDs de execuções RUNNING consideradas travadas (mais de 15 min sem concluir)
         limit = timezone.now() - timedelta(seconds=STALE_EXECUTION_SECONDS)
         from django.db.models import Q
         context['stale_execution_ids'] = set(
@@ -249,6 +283,22 @@ class ExecutionListView(ListView):
                 status=TaskStatus.RUNNING,
             ).filter(Q(started_at__lt=limit) | Q(started_at__isnull=True)).values_list('id', flat=True)
         )
+        context['filter_status'] = self.request.GET.get('status', '')
+        context['filter_task'] = self.request.GET.get('task', '')
+        context['filter_pipeline'] = self.request.GET.get('pipeline', '')
+        context['order_param'] = self.request.GET.get('order', '') or EXECUTION_ORDER_DEFAULT
+        context['tasks_for_filter'] = Task.objects.all().order_by('pipeline__name', 'name').select_related('pipeline')
+        context['status_choices'] = TaskStatus.choices
+        context['pipelines_for_filter'] = Pipeline.objects.all().order_by('name')
+        from urllib.parse import urlencode
+        get_no_page = {k: v for k, v in self.request.GET.items() if k != 'page'}
+        get_with_order = dict(get_no_page)
+        if 'order' not in get_with_order:
+            get_with_order['order'] = EXECUTION_ORDER_DEFAULT
+        get_no_order = {k: v for k, v in get_no_page.items() if k != 'order'}
+        context['query_string'] = self.request.GET.urlencode()
+        context['query_base'] = urlencode(get_with_order)
+        context['query_base_no_order'] = urlencode(get_no_order)
         return context
 
 
@@ -256,6 +306,152 @@ class ExecutionDetailView(DetailView):
     model = TaskExecution
     template_name = 'scheduler/execution_detail.html'
     context_object_name = 'execution'
+
+
+@login_required
+@require_http_methods(["GET"])
+def execution_export(request):
+    """Exporta execuções em CSV ou JSON conforme filtros da página (status, task, order)."""
+    fmt = (request.GET.get('format') or '').strip().lower()
+    if fmt not in ('csv', 'json'):
+        return HttpResponse('Formato inválido. Use ?format=csv ou ?format=json', status=400)
+    qs = _execution_list_queryset(request, apply_stale_release=False)
+    if fmt == 'json':
+        rows = []
+        for e in qs:
+            rows.append({
+                'id': e.id,
+                'tarefa': e.task.name,
+                'pipeline': e.pipeline.name,
+                'status': e.status,
+                'status_display': e.get_status_display(),
+                'iniciado': date_format(e.created_at, 'd/m/Y H:i:s') if e.created_at else '',
+                'finalizado': date_format(e.finished_at, 'd/m/Y H:i:s') if e.finished_at else '',
+                'duracao_seg': float(e.duration) if e.duration is not None else None,
+            })
+        return JsonResponse({'execucoes': rows}, json_dumps_params={'ensure_ascii': False})
+    # CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="execucoes.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow(['ID', 'Tarefa', 'Pipeline', 'Status', 'Iniciado', 'Finalizado', 'Duração (s)'])
+    for e in qs:
+        writer.writerow([
+            e.id,
+            e.task.name,
+            e.pipeline.name,
+            e.get_status_display(),
+            date_format(e.created_at, 'd/m/Y H:i:s') if e.created_at else '',
+            date_format(e.finished_at, 'd/m/Y H:i:s') if e.finished_at else '',
+            f'{e.duration:.2f}' if e.duration is not None else '',
+        ])
+    return response
+
+
+# APIs para atualização automática de status (polling)
+def _execution_to_json(execution):
+    """Serializa uma execução para JSON de status."""
+    return {
+        'id': execution.id,
+        'task_id': execution.task_id,
+        'task_name': execution.task.name,
+        'pipeline_id': execution.pipeline_id,
+        'pipeline_name': execution.pipeline.name,
+        'status': execution.status,
+        'status_display': execution.get_status_display(),
+        'created_at': date_format(execution.created_at, 'd/m/Y H:i:s') if execution.created_at else None,
+        'finished_at': date_format(execution.finished_at, 'd/m/Y H:i:s') if execution.finished_at else None,
+        'duration': float(execution.duration) if execution.duration is not None else None,
+    }
+
+
+@login_required
+@require_http_methods(["GET"])
+def execution_status_api(request):
+    """GET ?ids=1,2,3 — retorna status das execuções para atualização em tempo real."""
+    ids_param = request.GET.get('ids', '')
+    if not ids_param:
+        return JsonResponse({'executions': []})
+    try:
+        ids = [int(x.strip()) for x in ids_param.split(',') if x.strip()]
+    except ValueError:
+        return JsonResponse({'executions': []})
+    if not ids:
+        return JsonResponse({'executions': []})
+    executions = TaskExecution.objects.filter(id__in=ids).select_related('task', 'pipeline')
+    from datetime import timedelta
+    limit = timezone.now() - timedelta(seconds=STALE_EXECUTION_SECONDS)
+    from django.db.models import Q
+    stale_ids = set(
+        TaskExecution.objects.filter(id__in=ids, status=TaskStatus.RUNNING)
+        .filter(Q(started_at__lt=limit) | Q(started_at__isnull=True))
+        .values_list('id', flat=True)
+    )
+    result = []
+    for e in executions:
+        data = _execution_to_json(e)
+        data['is_stale'] = e.id in stale_ids
+        result.append(data)
+    return JsonResponse({'executions': result})
+
+
+@login_required
+@require_http_methods(["GET"])
+def execution_detail_status_api(request, pk):
+    """GET — retorna status de uma execução (para página de detalhe)."""
+    execution = get_object_or_404(TaskExecution, pk=pk)
+    data = _execution_to_json(execution)
+    data['returncode'] = execution.returncode
+    data['retry_count'] = execution.retry_count
+    return JsonResponse(data)
+
+
+@login_required
+@require_http_methods(["GET"])
+def pipeline_status_api(request, pk):
+    """GET — retorna status do pipeline: status por tarefa, últimas execuções, tarefas em execução."""
+    pipeline = get_object_or_404(Pipeline, pk=pk)
+    tasks = list(pipeline.tasks.all().order_by('name'))
+    running_task_ids = set(
+        TaskExecution.objects.filter(
+            task__pipeline=pipeline,
+            status=TaskStatus.RUNNING,
+        ).values_list('task_id', flat=True)
+    )
+    latest_exec_ids = TaskExecution.objects.filter(
+        pipeline=pipeline
+    ).values('task_id').annotate(max_id=Max('id')).values_list('max_id', flat=True)
+    last_executions = TaskExecution.objects.filter(
+        id__in=latest_exec_ids
+    ).select_related('task').order_by('task__name')
+    execution_status_by_task = {e.task_id: e.status for e in last_executions}
+    latest_list = list(
+        TaskExecution.objects.filter(pipeline=pipeline)
+        .select_related('task')
+        .order_by('-created_at')[:10]
+    )
+    scheduler = SchedulerManager()
+    next_run = {}
+    for t in tasks:
+        nt = scheduler.get_next_run_time(t.id)
+        next_run[t.id] = date_format(nt, 'd/m/Y H:i') if nt else None
+    return JsonResponse({
+        'task_status': {str(t.id): execution_status_by_task.get(t.id, 'pending') for t in tasks},
+        'running_task_ids': list(running_task_ids),
+        'next_run': next_run,
+        'latest_executions': [_execution_to_json(e) for e in latest_list],
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def dashboard_executions_api(request):
+    """GET — retorna execuções recentes para o dashboard (atualização em tempo real)."""
+    executions = TaskExecution.objects.select_related('task', 'pipeline').order_by('-created_at')[:20]
+    return JsonResponse({
+        'executions': [_execution_to_json(e) for e in executions],
+    })
 
 
 @login_required

@@ -1,11 +1,10 @@
 @echo off
 REM Iniciador completo do Orca para Windows - .venv, pip, migrate, runserver
+REM Pasta: install/windows. ROOT = raiz do projeto (dois níveis acima).
 REM Para rodar em segundo plano (sem janela): use IniciarOrca.vbs
-REM Requisito: Python instalado no PATH (python ou py).
 
-cd /d "%~dp0"
-set ROOT=%~dp0
-if "%ROOT:~-1%"=="\" set ROOT=%ROOT:~0,-1%
+cd /d "%~dp0..\.."
+set "ROOT=%CD%"
 
 REM Remove arquivo de erro de execução anterior
 if exist "%ROOT%orca_err.txt" del "%ROOT%orca_err.txt"
@@ -78,7 +77,7 @@ echo.
 echo [4/4] Iniciando servidor...
 echo.
 echo Acesse: http://127.0.0.1:8000
-echo Para parar: feche esta janela ou use PararOrca.bat
+echo Para parar: feche esta janela ou use install\windows\PararOrca.bat
 echo.
 "%PY%" "%ROOT%\manage.py" runserver 0.0.0.0:8000
 pause

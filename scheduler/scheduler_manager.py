@@ -132,15 +132,16 @@ class SchedulerManager:
                         pass
 
     def schedule_task(self, task: Task):
-        """Agenda uma tarefa individual. Tarefas com dependências não são agendadas por cron: rodam após as dependências."""
+        """Agenda uma tarefa individual. Pode ter dependências e agendamento: ao disparar o horário, a execução só ocorre se as dependências estiverem satisfeitas."""
         if not self.is_running:
-            return
-        
-        if task.depends_on.filter(is_active=True).exists():
-            logger.info(f"Tarefa {task.name} não agendada por cron (será executada após as dependências concluírem)")
             return
 
         config = task.schedule_config or {}
+        has_deps = task.depends_on.filter(pipeline=task.pipeline, is_active=True).exists()
+        # Sem agendamento configurado e com dependências: não adiciona job (roda apenas quando as dependências dispararem)
+        if has_deps and not config and not (isinstance(config, list) and len(config) > 0):
+            logger.info(f"Tarefa {task.name} sem agendamento (será executada após as dependências)")
+            return
         tz = timezone(settings.TIME_ZONE)
 
         # Remove todos os jobs existentes desta tarefa
@@ -289,8 +290,8 @@ class SchedulerManager:
             self._trigger_dependent_tasks(task)
 
     def _trigger_dependent_tasks(self, task: Task):
-        """Dispara as tarefas que dependem desta, assim que esta termina com sucesso."""
-        for dep in task.dependents.filter(is_active=True):
+        """Dispara as tarefas que dependem desta (mesmo pipeline), assim que esta termina com sucesso."""
+        for dep in task.dependents.filter(pipeline=task.pipeline, is_active=True):
             if self.dag_manager.can_execute(dep):
                 logger.info("Disparando tarefa dependente: %s (após %s)", dep.name, task.name)
                 threading.Thread(target=self._execute_task, args=(dep,), daemon=True).start()

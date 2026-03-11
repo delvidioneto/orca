@@ -206,15 +206,13 @@
                         </thead>
                         <tbody>
                             {% for task in tasks %}
-                            <tr>
+                            <tr data-task-id="{{ task.id }}">
                                 <td class="col-nome">
                                     <span class="fw-semibold">{{ task.name }}</span>
                                     {% if not task.is_active %}
                                     <span class="badge bg-warning text-dark ms-1">Inativo</span>
                                     {% endif %}
-                                    {% if task.has_running_execution %}
-                                    <span class="badge bg-primary ms-1">Em execução</span>
-                                    {% endif %}
+                                    <span class="badge bg-primary ms-1 badge-running" style="{% if not task.has_running_execution %}display:none{% endif %}">Em execução</span>
                                 </td>
                                 <td class="col-agendamento">
                                     <span class="cell-agendamento text-secondary">{{ task.get_schedule_display }}</span>
@@ -222,7 +220,7 @@
                                 <td class="col-datas text-nowrap">
                                     <span class="text-muted small">{{ task.created_at|date:"d/m/Y H:i" }}</span>
                                 </td>
-                                <td class="col-datas text-nowrap">
+                                <td class="col-datas text-nowrap cell-next-run">
                                     {% if task.next_run_time_dt %}
                                     <span class="small">{{ task.next_run_time_dt|date:"d/m/Y H:i" }}</span>
                                     {% else %}
@@ -230,32 +228,31 @@
                                     {% endif %}
                                 </td>
                                 <td class="col-dep">
-                                    {% if task.depends_on.all %}
+                                    {% with deps=task.get_dependencies_same_pipeline %}
+                                    {% if deps %}
                                     <div class="cell-dep">
-                                        {% for dep in task.depends_on.all %}
+                                        {% for dep in deps %}
                                         <span class="badge bg-info">{{ dep.name }}</span>
                                         {% endfor %}
                                     </div>
                                     {% else %}
                                     <span class="text-muted small">—</span>
                                     {% endif %}
+                                    {% endwith %}
                                 </td>
-                                <td class="col-acoes text-nowrap">
-                                    {% if task.has_running_execution %}
-                                    <form action="{% url 'scheduler:task_cancel' task.id %}" method="post" class="d-inline" title="Cancelar execução em andamento">
+                                <td class="col-acoes text-nowrap cell-task-actions">
+                                    <form action="{% url 'scheduler:task_cancel' task.id %}" method="post" class="d-inline task-cancel-form" title="Cancelar execução em andamento" style="{% if not task.has_running_execution %}display:none{% endif %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Cancelar a execução em andamento desta tarefa?');">
                                             <i class="bi bi-stop-fill"></i>
                                         </button>
                                     </form>
-                                    {% else %}
-                                    <form action="{% url 'scheduler:task_run' task.id %}" method="post" class="d-inline" title="Executar agora">
+                                    <form action="{% url 'scheduler:task_run' task.id %}" method="post" class="d-inline task-run-form" title="Executar agora" style="{% if task.has_running_execution %}display:none{% endif %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-success">
                                             <i class="bi bi-play-fill"></i>
                                         </button>
                                     </form>
-                                    {% endif %}
                                     <a href="{% url 'scheduler:task_update' task.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -304,24 +301,22 @@
             </div>
             <div class="card-body">
                 {% if executions %}
-                <ul class="list-group list-group-flush">
+                <ul class="list-group list-group-flush" id="pipeline-latest-executions">
                     {% for execution in executions %}
-                    <li class="list-group-item">
+                    <li class="list-group-item" data-execution-id="{{ execution.id }}">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <strong>{{ execution.task.name }}</strong><br>
                                 <small class="text-muted">{{ execution.created_at|date:"d/m/Y H:i" }}</small>
                             </div>
                             <div class="d-flex align-items-center gap-1">
-                                {% if execution.status == 'running' %}
-                                <form action="{% url 'scheduler:task_cancel' execution.task_id %}" method="post" class="d-inline" title="Cancelar execução">
+                                <form action="{% url 'scheduler:task_cancel' execution.task_id %}" method="post" class="d-inline latest-cancel-form" title="Cancelar execução" style="{% if execution.status != 'running' %}display:none{% endif %}">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-outline-warning py-0" onclick="return confirm('Cancelar esta execução?');">
                                         <i class="bi bi-stop-fill small"></i>
                                     </button>
                                 </form>
-                                {% endif %}
-                                <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none" title="Ver log da execução">
+                                <a href="{% url 'scheduler:execution_detail' execution.id %}" class="badge-status status-{{ execution.status }} text-decoration-none latest-status-badge" title="Ver log da execução">
                                     {{ execution.get_status_display }}
                                 </a>
                             </div>
@@ -336,5 +331,65 @@
         </div>
     </div>
 </div>
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function() {
+    var pipelineId = {{ pipeline.id }};
+    var url = '{% url "scheduler:pipeline_status_api" pipeline.id %}';
+    var interval = 4000;
+
+    function poll() {
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var runningIds = (data.running_task_ids || []).reduce(function(acc, id) { acc[id] = true; return acc; }, {});
+                var nextRun = data.next_run || {};
+                var taskStatus = data.task_status || {};
+
+                document.querySelectorAll('.pipeline-graph-node[data-task-id]').forEach(function(node) {
+                    var taskId = node.getAttribute('data-task-id');
+                    var status = taskStatus[taskId] || 'pending';
+                    node.className = node.className.replace(/\bnode-status-\S+/g, '') + ' node-status-' + status;
+                });
+
+                document.querySelectorAll('tr[data-task-id]').forEach(function(tr) {
+                    var taskId = tr.getAttribute('data-task-id');
+                    var running = runningIds[taskId];
+                    var badge = tr.querySelector('.badge-running');
+                    if (badge) badge.style.display = running ? '' : 'none';
+                    var nextRunCell = tr.querySelector('.cell-next-run');
+                    if (nextRunCell) {
+                        var t = nextRun[taskId];
+                        nextRunCell.innerHTML = t ? '<span class="small">' + t + '</span>' : '<span class="text-muted">—</span>';
+                    }
+                    var actionsCell = tr.querySelector('.cell-task-actions');
+                    if (actionsCell) {
+                        var cancelForm = actionsCell.querySelector('.task-cancel-form');
+                        var runForm = actionsCell.querySelector('.task-run-form');
+                        if (cancelForm) cancelForm.style.display = running ? '' : 'none';
+                        if (runForm) runForm.style.display = running ? 'none' : '';
+                    }
+                });
+
+                (data.latest_executions || []).forEach(function(e) {
+                    var li = document.querySelector('#pipeline-latest-executions li[data-execution-id="' + e.id + '"]');
+                    if (!li) return;
+                    var badge = li.querySelector('.latest-status-badge');
+                    var cancelForm = li.querySelector('.latest-cancel-form');
+                    if (badge) {
+                        badge.textContent = e.status_display;
+                        badge.className = 'badge-status status-' + e.status + ' text-decoration-none latest-status-badge';
+                    }
+                    if (cancelForm) cancelForm.style.display = (e.status === 'running') ? '' : 'none';
+                });
+            })
+            .catch(function() {});
+    }
+
+    setInterval(poll, interval);
+})();
+</script>
+{% endblock %}
 {% endblock %}
 

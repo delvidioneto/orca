@@ -28,9 +28,9 @@ class DAGManager:
         for task in tasks:
             G.add_node(task.id, task=task)
         
-        # Adiciona arestas (dependências)
+        # Adiciona arestas (dependências apenas do mesmo pipeline)
         for task in tasks:
-            for dep in task.depends_on.filter(is_active=True):
+            for dep in task.depends_on.filter(pipeline_id=pipeline_id, is_active=True):
                 G.add_edge(dep.id, task.id)
         
         # Valida se é DAG (sem ciclos)
@@ -44,9 +44,9 @@ class DAGManager:
     def can_execute(self, task: Task) -> bool:
         """
         Verifica se uma tarefa pode ser executada
-        (todas as dependências foram concluídas com sucesso)
+        (todas as dependências do mesmo pipeline foram concluídas com sucesso)
         """
-        dependencies = task.depends_on.filter(is_active=True)
+        dependencies = task.depends_on.filter(pipeline=task.pipeline, is_active=True)
         
         if not dependencies.exists():
             return True

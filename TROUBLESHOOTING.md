@@ -6,9 +6,7 @@
 
 ```bash
 # 1. Pare todos os containers do Orca
-docker compose -f docker-compose.dev.yml down
-# ou (se usar docker-compose antigo)
-docker-compose -f docker-compose.dev.yml down
+docker compose -f install/docker/docker-compose.dev.yml down
 
 # 2. Remova containers órfãos
 docker rm -f $(docker ps -aq --filter "name=orca") 2>/dev/null
@@ -20,7 +18,7 @@ lsof -i :8000
 lsof -ti :8000 | xargs kill -9
 
 # 5. Tente novamente
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml up -d
 ```
 
 ### Verificar o que está usando a porta
@@ -38,7 +36,7 @@ docker ps -a | grep orca
 
 ### Usar outra porta
 
-Se precisar usar outra porta, edite o `docker-compose.dev.yml`:
+Se precisar usar outra porta, edite o `install/docker/docker-compose.dev.yml`:
 
 ```yaml
 ports:
@@ -49,14 +47,14 @@ ports:
 
 ### Ver logs
 ```bash
-docker compose -f docker-compose.dev.yml logs
+docker compose -f install/docker/docker-compose.dev.yml logs
 ```
 
 ### Rebuild completo
 ```bash
-docker compose -f docker-compose.dev.yml down -v
-docker compose -f docker-compose.dev.yml build --no-cache
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml down -v
+docker compose -f install/docker/docker-compose.dev.yml build --no-cache
+docker compose -f install/docker/docker-compose.dev.yml up -d
 ```
 
 ## Erro: Permissão negada
@@ -64,7 +62,7 @@ docker compose -f docker-compose.dev.yml up -d
 ### Ajustar permissões
 ```bash
 sudo chown -R $USER:$USER ./logs ./media ./staticfiles
-chmod +x docker-entrypoint.sh
+chmod +x install/docker/docker-entrypoint.sh
 ```
 
 ## Erro: Banco de dados não conecta
@@ -76,38 +74,38 @@ ls -la db.sqlite3
 
 # Remova e recrie
 rm db.sqlite3
-docker compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py migrate
 ```
 
 ### PostgreSQL (prod)
 ```bash
 # Verifique se o container do banco está rodando
-docker compose ps db
+docker compose -f install/docker/docker-compose.yml ps db
 
 # Ver logs do banco
-docker compose logs db
+docker compose -f install/docker/docker-compose.yml logs db
 
 # Reinicie o banco
-docker compose restart db
+docker compose -f install/docker/docker-compose.yml restart db
 ```
 
 ## Erro: Scheduler não inicia
 
 ### Verificar logs do scheduler
 ```bash
-docker compose -f docker-compose.dev.yml logs web | grep scheduler
+docker compose -f install/docker/docker-compose.dev.yml logs web | grep scheduler
 ```
 
 ### Reiniciar scheduler manualmente
 ```bash
-docker compose -f docker-compose.dev.yml exec web python manage.py start_scheduler
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py start_scheduler
 ```
 
 ## Limpar tudo e começar do zero
 
 ```bash
 # Para containers
-docker compose -f docker-compose.dev.yml down -v
+docker compose -f install/docker/docker-compose.dev.yml down -v
 
 # Remove imagens
 docker rmi orca-web 2>/dev/null
@@ -116,27 +114,27 @@ docker rmi orca-web 2>/dev/null
 docker volume prune -f
 
 # Rebuild
-docker compose -f docker-compose.dev.yml build --no-cache
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f install/docker/docker-compose.dev.yml build --no-cache
+docker compose -f install/docker/docker-compose.dev.yml up -d
 ```
 
 ## Comandos úteis
 
 ```bash
 # Ver status dos containers
-docker compose -f docker-compose.dev.yml ps
+docker compose -f install/docker/docker-compose.dev.yml ps
 
 # Ver logs em tempo real
-docker compose -f docker-compose.dev.yml logs -f
+docker compose -f install/docker/docker-compose.dev.yml logs -f
 
 # Executar comando no container
-docker compose -f docker-compose.dev.yml exec web bash
+docker compose -f install/docker/docker-compose.dev.yml exec web bash
 
 # Criar superusuário
-docker compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py createsuperuser
 
 # Executar migrações
-docker compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker compose -f install/docker/docker-compose.dev.yml exec web python manage.py migrate
 ```
 
 ## Acessar por orca.localhost (não funciona)

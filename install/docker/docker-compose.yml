@@ -1,13 +1,19 @@
+# Orca – produção (PostgreSQL).
+# Execute desta pasta: docker compose -f docker-compose.yml up -d
+# Ou da raiz do projeto: docker compose -f install/docker/docker-compose.yml up -d
+
 services:
   web:
-    build: .
+    build:
+      context: ../..
+      dockerfile: Dockerfile
     container_name: orca_web
     ports:
       - "8000:8000"
     volumes:
-      - ./scripts:/app/scripts:ro
-      - ./logs:/app/logs
-      - ./media:/app/media
+      - ../../scripts:/app/scripts:ro
+      - ../../logs:/app/logs
+      - ../../media:/app/media
       - postgres_data:/var/lib/postgresql/data
       - staticfiles:/app/staticfiles
     environment:

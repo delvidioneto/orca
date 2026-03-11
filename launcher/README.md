@@ -14,11 +14,11 @@ A escolha é salva em `orca_config.json` na raiz do projeto e não é perguntada
 ## O que o launcher faz
 
 - **Docker:** verifica se o Docker está instalado/rodando; se não, oferece abrir a página de download do Docker Desktop.
-- Sobe o stack (Docker: `docker compose -f docker-compose.yml up -d`; Sem Docker: processo Django em `http://127.0.0.1:8000`).
+- Sobe o stack (Docker: `docker compose -f install/docker/docker-compose.yml up -d`; Sem Docker: processo Django em `http://127.0.0.1:8000`).
 - Ícone na bandeja do sistema com menu:
   - **Abrir Orca** — abre o navegador em http://127.0.0.1:8000
   - **Iniciar Orca** — sobe o stack (útil depois de ter parado)
-  - **Parar Orca** — para o stack (Docker: `docker compose down`; Sem Docker: encerra o processo Django)
+  - **Parar Orca** — para o stack (Docker: `docker compose -f install/docker/docker-compose.yml down`; Sem Docker: encerra o processo Django)
   - **Reiniciar Orca** — para e sobe de novo (em ambos os modos)
   - **Iniciar com o Windows** — marca/desmarca para abrir o Orca ao ligar o PC
   - **Verificar atualizações** — aparece se a variável de ambiente `ORCA_VERSION_URL` estiver definida (URL de um arquivo de texto com a versão remota)
@@ -27,11 +27,11 @@ A escolha é salva em `orca_config.json` na raiz do projeto e não é perguntada
 
 ## Versão
 
-A versão é obtida do arquivo `VERSION` na pasta do projeto (atualizado pelo hook com versão semântica) ou, na falta dele, com `git describe --tags --always`. Ela aparece no tooltip do ícone da bandeja, no menu **Sobre** e no rodapé da interface web do Orca.
+A versão é obtida do arquivo `install/version/VERSION` (atualizado com `python install/version/bump_version.py`). Ela aparece no tooltip do ícone da bandeja, no menu **Sobre** e no rodapé da interface web do Orca.
 
 ## Uso sem construir o .exe (sem instalação)
 
-**Windows:** na raiz do projeto, **`IniciarOrca.bat`** sobe o Django com `manage.py runserver` (usa .venv se existir, senão Python do PATH; `DATABASE=sqlite`). Dois cliques e acesse http://127.0.0.1:8000. Não inicia o launcher com ícone na bandeja — para isso, rode manualmente:
+**Windows:** use **`install/windows/IniciarOrca.bat`** para subir o Django com `manage.py runserver` (usa .venv se existir, senão Python do PATH; `DATABASE=sqlite`). Dois cliques e acesse http://127.0.0.1:8000. Não inicia o launcher com ícone na bandeja — para isso, rode manualmente:
 
 **Rodar o launcher (bandeja, Docker/Sem Docker) manualmente:**
 
@@ -39,7 +39,7 @@ A versão é obtida do arquivo `VERSION` na pasta do projeto (atualizado pelo ho
    ```bash
    pip install -r launcher/requirements-launcher.txt
    ```
-2. Na **raiz do projeto Orca** (onde está `docker-compose.yml` e `manage.py`):
+2. Na **raiz do projeto Orca** (onde está `manage.py` e a pasta `install/`):
    ```bash
    python launcher/orca_launcher.py
    ```
@@ -63,7 +63,7 @@ O executável será gerado em `launcher/dist/OrcaLauncher.exe`. Copie `OrcaLaunc
 
 ## Distribuir para o usuário
 
-1. Entregue a **pasta completa do projeto Orca** (código, `docker-compose.yml`, `manage.py`, etc.).
+1. Entregue a **pasta completa do projeto Orca** (código, `install/`, `manage.py`, etc.).
 2. Coloque **`OrcaLauncher.exe`** na raiz dessa pasta.
 3. **Modo Docker:** o usuário precisa ter o Docker Desktop instalado e aberto. Se não tiver, o launcher oferece o link de download.
 4. **Modo Sem Docker:** o usuário precisa ter Python instalado; o launcher cria o `.venv` e instala dependências na primeira execução.

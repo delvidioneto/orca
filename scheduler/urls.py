@@ -16,8 +16,13 @@ urlpatterns = [
     path('tasks/<int:pk>/run/', views.run_task_now, name='task_run'),
     path('tasks/<int:pk>/cancel/', views.cancel_task_execution, name='task_cancel'),
     path('executions/', views.ExecutionListView.as_view(), name='execution_list'),
+    path('executions/export/', views.execution_export, name='execution_export'),
+    path('executions/status/', views.execution_status_api, name='execution_status_api'),
     path('executions/<int:pk>/', views.ExecutionDetailView.as_view(), name='execution_detail'),
+    path('executions/<int:pk>/status/', views.execution_detail_status_api, name='execution_detail_status_api'),
     path('executions/<int:pk>/cancel/', views.cancel_execution, name='execution_cancel'),
+    path('pipelines/<int:pk>/status/', views.pipeline_status_api, name='pipeline_status_api'),
+    path('dashboard/executions/', views.dashboard_executions_api, name='dashboard_executions_api'),
     path('reload/', views.reload_scheduler, name='reload'),
 ]
 

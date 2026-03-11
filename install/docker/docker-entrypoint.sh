@@ -56,4 +56,3 @@ fi
 
 # Executa o comando passado
 exec "$@"
-

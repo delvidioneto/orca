@@ -5,7 +5,7 @@ REM Execute uma vez. Para remover: use RemoverInicioWindows.bat
 set "VBS=%~dp0IniciarOrca.vbs"
 if not exist "%VBS%" (
     echo Arquivo nao encontrado: IniciarOrca.vbs
-    echo Coloque este .bat na mesma pasta do IniciarOrca.vbs.
+    echo Coloque este .bat na mesma pasta do IniciarOrca.vbs (install\windows).
     pause
     exit /b 1
 )

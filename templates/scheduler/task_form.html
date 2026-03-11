@@ -117,7 +117,7 @@
             <div class="mb-3">
                 <label for="{{ form.depends_on.id_for_label }}" class="form-label">Depende de</label>
                 {{ form.depends_on }}
-                <small class="form-text text-muted">Segure Ctrl para selecionar múltiplas tarefas. Se houver dependências, a tarefa será executada logo após elas (agendamento não é necessário).</small>
+                <small class="form-text text-muted">Apenas tarefas do mesmo pipeline aparecem aqui. Segure Ctrl para múltiplas. Dependências de outros pipelines não são exibidas.</small>
             </div>
             
             <div class="mb-3" id="schedule-config-wrap">
@@ -127,7 +127,7 @@
                 <div class="text-danger small">{{ form.schedule_config.errors }}</div>
                 {% endif %}
                 <small class="form-text text-muted">
-                    Opcional. Se a tarefa tiver dependências acima, este agendamento é ignorado (ela roda após as dependências).<br>
+                    Opcional. Você pode configurar agendamento mesmo quando a tarefa tem dependências: ela rodará quando o horário for atingido e as dependências estiverem concluídas.<br>
                     O tipo (intervalo, diário, semanal, etc.) é inferido automaticamente.<br>
                     <strong>Exemplos:</strong><br>
                     <code>{"minutes": 30}</code> — a cada 30 min<br>
@@ -177,17 +177,6 @@
     toggle();
 })();
 
-(function() {
-    var dependsOn = document.getElementById('id_depends_on');
-    var scheduleWrap = document.getElementById('schedule-config-wrap');
-    if (!dependsOn || !scheduleWrap) return;
-    function toggleSchedule() {
-        var hasDeps = dependsOn.selectedOptions && dependsOn.selectedOptions.length > 0;
-        scheduleWrap.style.display = hasDeps ? 'none' : '';
-    }
-    dependsOn.addEventListener('change', toggleSchedule);
-    toggleSchedule();
-})();
 </script>
 {% endblock %}
 
